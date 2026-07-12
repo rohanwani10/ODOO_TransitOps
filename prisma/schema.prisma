@@ -1,0 +1,281 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id               String     @id @default(cuid())
+  email            String     @unique
+  passwordHash     String     @map("password_hash")
+  name             String
+  role             Role       @default(DRIVER)
+  isActive         Boolean    @default(true) @map("is_active")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+  auditLogs        AuditLog[]
+  driver           Driver?
+  reviewedExpenses Expense[]  @relation("ExpenseReviewedBy")
+  expenses         Expense[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model Vehicle {
+  id                 String           @id @default(cuid())
+  registrationNo     String           @unique @map("registration_no")
+  make               String
+  model              String
+  year               Int
+  type               VehicleType
+  fuelType           FuelType         @map("fuel_type")
+  status             VehicleStatus    @default(AVAILABLE)
+  odometerKm         Int              @default(0) @map("odometer_km")
+  seatingCapacity    Int?             @map("seating_capacity")
+  insurancePolicyNo  String?          @map("insurance_policy_no")
+  insuranceExpiry    DateTime?        @map("insurance_expiry")
+  registrationExpiry DateTime?        @map("registration_expiry")
+  imageUrl           String?          @map("image_url")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  expenses           Expense[]
+  fuelLogs           FuelLog[]
+  maintenanceLogs    MaintenanceLog[]
+  trips              Trip[]
+
+  @@index([status])
+  @@index([type])
+  @@index([registrationNo])
+  @@map("vehicles")
+}
+
+model Driver {
+  id             String       @id @default(cuid())
+  userId         String       @unique @map("user_id")
+  licenseNo      String       @unique @map("license_no")
+  licenseExpiry  DateTime     @map("license_expiry")
+  phone          String
+  address        String?
+  dateOfBirth    DateTime?    @map("date_of_birth")
+  status         DriverStatus @default(ACTIVE)
+  emergencyName  String?      @map("emergency_name")
+  emergencyPhone String?      @map("emergency_phone")
+  imageUrl       String?      @map("image_url")
+  hiredAt        DateTime     @default(now()) @map("hired_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fuelLogs       FuelLog[]
+  trips          Trip[]
+
+  @@index([status])
+  @@index([licenseExpiry])
+  @@map("drivers")
+}
+
+model Trip {
+  id             String     @id @default(cuid())
+  vehicleId      String     @map("vehicle_id")
+  driverId       String     @map("driver_id")
+  origin         String
+  destination    String
+  scheduledStart DateTime   @map("scheduled_start")
+  scheduledEnd   DateTime   @map("scheduled_end")
+  actualStart    DateTime?  @map("actual_start")
+  actualEnd      DateTime?  @map("actual_end")
+  startOdometer  Int?       @map("start_odometer")
+  endOdometer    Int?       @map("end_odometer")
+  distanceKm     Int?       @map("distance_km")
+  purpose        String?
+  status         TripStatus @default(SCHEDULED)
+  notes          String?
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+  expenses       Expense[]
+  fuelLogs       FuelLog[]
+  driver         Driver     @relation(fields: [driverId], references: [id])
+  vehicle        Vehicle    @relation(fields: [vehicleId], references: [id])
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([status])
+  @@index([scheduledStart])
+  @@map("trips")
+}
+
+model MaintenanceLog {
+  id          String            @id @default(cuid())
+  vehicleId   String            @map("vehicle_id")
+  type        MaintenanceType
+  status      MaintenanceStatus @default(SCHEDULED)
+  title       String
+  description String?
+  vendor      String?
+  odometerKm  Int?              @map("odometer_km")
+  scheduledAt DateTime          @map("scheduled_at")
+  completedAt DateTime?         @map("completed_at")
+  cost        Decimal?          @db.Decimal(10, 2)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  vehicle     Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("maintenance_logs")
+}
+
+model FuelLog {
+  id           String   @id @default(cuid())
+  vehicleId    String   @map("vehicle_id")
+  driverId     String   @map("driver_id")
+  tripId       String?  @map("trip_id")
+  fuelType     FuelType @map("fuel_type")
+  quantity     Decimal  @db.Decimal(8, 2)
+  pricePerUnit Decimal  @map("price_per_unit") @db.Decimal(8, 2)
+  totalCost    Decimal  @map("total_cost") @db.Decimal(10, 2)
+  odometerKm   Int      @map("odometer_km")
+  station      String?
+  filledAt     DateTime @default(now()) @map("filled_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  driver       Driver   @relation(fields: [driverId], references: [id])
+  trip         Trip?    @relation(fields: [tripId], references: [id])
+  vehicle      Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([filledAt])
+  @@map("fuel_logs")
+}
+
+model Expense {
+  id            String          @id @default(cuid())
+  vehicleId     String          @map("vehicle_id")
+  tripId        String?         @map("trip_id")
+  submittedById String          @map("submitted_by_id")
+  category      ExpenseCategory
+  amount        Decimal         @db.Decimal(10, 2)
+  description   String
+  receiptUrl    String?         @map("receipt_url")
+  status        ExpenseStatus   @default(PENDING)
+  reviewedById  String?         @map("reviewed_by_id")
+  reviewNote    String?         @map("review_note")
+  reviewedAt    DateTime?       @map("reviewed_at")
+  incurredAt    DateTime        @map("incurred_at")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  reviewedBy    User?           @relation("ExpenseReviewedBy", fields: [reviewedById], references: [id])
+  submittedBy   User            @relation(fields: [submittedById], references: [id])
+  trip          Trip?           @relation(fields: [tripId], references: [id])
+  vehicle       Vehicle         @relation(fields: [vehicleId], references: [id])
+
+  @@index([vehicleId])
+  @@index([status])
+  @@index([submittedById])
+  @@index([incurredAt])
+  @@map("expenses")
+}
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  userId    String?     @map("user_id")
+  action    AuditAction
+  entity    String
+  entityId  String      @map("entity_id")
+  oldValues Json?       @map("old_values")
+  newValues Json?       @map("new_values")
+  ipAddress String?     @map("ip_address")
+  userAgent String?     @map("user_agent")
+  createdAt DateTime    @default(now()) @map("created_at")
+  user      User?       @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  DRIVER
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  OUT_OF_SERVICE
+  RETIRED
+}
+
+enum VehicleType {
+  BUS
+  MINIBUS
+  VAN
+  TRUCK
+  CAR
+  MOTORCYCLE
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  ELECTRIC
+  HYBRID
+  CNG
+}
+
+enum DriverStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum TripStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MaintenanceType {
+  SCHEDULED
+  UNSCHEDULED
+  EMERGENCY
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ExpenseCategory {
+  FUEL
+  MAINTENANCE
+  TOLL
+  INSURANCE
+  REGISTRATION
+  CLEANING
+  MISCELLANEOUS
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
