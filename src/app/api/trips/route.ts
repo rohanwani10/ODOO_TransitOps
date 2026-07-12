@@ -4,8 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 const tripStatusSchema = z.enum(["DRAFT", "DISPATCHED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
 
-const tripCreateSchema = z
-    .object({
+const tripBaseSchema = z.object({
         vehicleId: z.string().trim().min(1),
         driverId: z.string().trim().min(1),
         origin: z.string().trim().min(1),
@@ -21,8 +20,9 @@ const tripCreateSchema = z
         purpose: z.string().trim().min(1).optional().nullable(),
         status: tripStatusSchema.optional(),
         notes: z.string().trim().min(1).optional().nullable(),
-    })
-    .strict()
+    }).strict();
+
+const tripCreateSchema = tripBaseSchema
     .superRefine((value, context) => {
         if (value.scheduledEnd < value.scheduledStart) {
             context.addIssue({ code: "custom", path: ["scheduledEnd"], message: "scheduledEnd must be after scheduledStart" });
@@ -33,6 +33,14 @@ const tripCreateSchema = z
         }
     });
 
+const tripUpdateSchema = tripBaseSchema.partial().superRefine((value, context) => {
+    if (Object.keys(value).length === 0) {
+        context.addIssue({ code: "custom", message: "At least one field is required" });
+    }
+
+    if (value.scheduledStart && value.scheduledEnd && value.scheduledEnd < value.scheduledStart) {
+        context.addIssue({ code: "custom", path: ["scheduledEnd"], message: "scheduledEnd must be after scheduledStart" });
+    }
 
 
 function parsePagination(url: URL) {
