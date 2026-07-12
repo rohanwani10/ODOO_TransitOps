@@ -34,6 +34,7 @@ function parsePagination(url: URL) {
 function buildMaintenanceWhere(url: URL) {
     const q = url.searchParams.get("q")?.trim();
     const status = url.searchParams.get("status");
+    const vehicleId = url.searchParams.get("vehicleId")?.trim();
 
     const filters: Record<string, unknown>[] = [];
 
@@ -50,6 +51,10 @@ function buildMaintenanceWhere(url: URL) {
 
     if (status && maintenanceStatusSchema.safeParse(status).success) {
         filters.push({ status });
+    }
+
+    if (vehicleId) {
+        filters.push({ vehicleId });
     }
 
     if (filters.length === 0) {
@@ -85,27 +90,43 @@ function isPrismaUniqueError(error: unknown) {
 
 
 export async function GET(request: Request) {
-    const url = new URL(request.url);
-    const { page, limit, skip } = parsePagination(url);
-    const where = buildMaintenanceWhere(url);
+    try {
+        const url = new URL(request.url);
+        const { page, limit, skip } = parsePagination(url);
+        const where = buildMaintenanceWhere(url);
 
-    const [items, total] = await prisma.$transaction([
-        prisma.maintenanceLog.findMany({
-            where,
-            orderBy: { scheduledAt: "desc" },
-            skip,
-            take: limit,
-        }),
-        prisma.maintenanceLog.count({ where }),
-    ]);
+        const [items, total] = await prisma.$transaction([
+            prisma.maintenanceLog.findMany({
+                where,
+                orderBy: { scheduledAt: "desc" },
+                skip,
+                take: limit,
+                include: {
+                    vehicle: {
+                        select: { id: true, registrationNo: true, make: true, model: true, type: true, status: true },
+                    },
+                },
+            }),
+            prisma.maintenanceLog.count({ where }),
+        ]);
 
-    return NextResponse.json({
-        data: items,
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-    });
+        return NextResponse.json({
+            success: true,
+            data: items,
+            meta: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
+    } catch (error) {
+        console.error("GET /api/maintenance-logs error:", error);
+        return NextResponse.json(
+            { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to fetch maintenance logs" } },
+            { status: 500 },
+        );
+    }
 }
 
 export async function POST(request: Request) {
@@ -114,27 +135,91 @@ export async function POST(request: Request) {
     try {
         payload = await request.json();
     } catch {
-        return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+        return NextResponse.json(
+            { success: false, error: { code: "BAD_REQUEST", message: "Invalid JSON body" } },
+            { status: 400 },
+        );
     }
 
     const parsed = maintenanceCreateSchema.safeParse(payload);
 
     if (!parsed.success) {
-        return NextResponse.json({ error: "Validation failed", issues: parsed.error.flatten() }, { status: 400 });
+        const flat = parsed.error.flatten();
+        const fields: Record<string, string> = {};
+        for (const [key, messages] of Object.entries(flat.fieldErrors)) {
+            if (messages && messages.length > 0) {
+                fields[key] = messages[0];
+            }
+        }
+        return NextResponse.json(
+            { success: false, error: { code: "VALIDATION_ERROR", message: "Validation failed", fields } },
+            { status: 422 },
+        );
+    }
+
+    // Business rule: vehicle must not be ON_TRIP
+    const vehicle = await prisma.vehicle.findUnique({
+        where: { id: parsed.data.vehicleId },
+        select: { id: true, status: true },
+    });
+
+    if (!vehicle) {
+        return NextResponse.json(
+            { success: false, error: { code: "NOT_FOUND", message: "Vehicle not found" } },
+            { status: 404 },
+        );
+    }
+
+    if (vehicle.status === "ON_TRIP") {
+        return NextResponse.json(
+            { success: false, error: { code: "INVALID_STATE", message: "Cannot start maintenance while vehicle is on an active trip" } },
+            { status: 409 },
+        );
     }
 
     try {
-        const maintenanceLog = await prisma.maintenanceLog.create({ data: buildMaintenanceData(parsed.data) });
-        return NextResponse.json(maintenanceLog, { status: 201 });
+        // Create maintenance log and set vehicle to MAINTENANCE status in a transaction
+        const maintenanceLog = await prisma.$transaction(async (tx) => {
+            const log = await tx.maintenanceLog.create({
+                data: buildMaintenanceData(parsed.data),
+                include: {
+                    vehicle: {
+                        select: { id: true, registrationNo: true, make: true, model: true },
+                    },
+                },
+            });
+
+            // SRS Business Rule: Creating active maintenance → vehicle status = MAINTENANCE (In Shop)
+            if (parsed.data.status !== "COMPLETED" && parsed.data.status !== "CANCELLED") {
+                await tx.vehicle.update({
+                    where: { id: parsed.data.vehicleId },
+                    data: { status: "MAINTENANCE" },
+                });
+            }
+
+            return log;
+        });
+
+        return NextResponse.json({ success: true, data: maintenanceLog }, { status: 201 });
     } catch (error) {
         if (isPrismaUniqueError(error)) {
-            return NextResponse.json({ error: "Maintenance log already exists" }, { status: 409 });
+            return NextResponse.json(
+                { success: false, error: { code: "DUPLICATE", message: "Maintenance log already exists" } },
+                { status: 409 },
+            );
         }
 
         if (error instanceof Error && "code" in error && (error as { code?: string }).code === "P2003") {
-            return NextResponse.json({ error: "Referenced vehicle was not found" }, { status: 409 });
+            return NextResponse.json(
+                { success: false, error: { code: "FK_VIOLATION", message: "Referenced vehicle was not found" } },
+                { status: 409 },
+            );
         }
 
-        return NextResponse.json({ error: "Failed to create maintenance log" }, { status: 500 });
+        console.error("POST /api/maintenance-logs error:", error);
+        return NextResponse.json(
+            { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to create maintenance log" } },
+            { status: 500 },
+        );
     }
 }
