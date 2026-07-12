@@ -17,7 +17,6 @@ import "dotenv/config";
 import jwt from "jsonwebtoken";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
-
 const secret = process.env.JWT_SECRET;
 const dbUrl = process.env.DATABASE_URL;
 
