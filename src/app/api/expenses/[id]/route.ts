@@ -1,6 +1,20 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import {
+    noContentResponse,
+    errorResponse,
+    Errors,
+    successResponse,
+} from "@/lib/api-response";
+import {
+    isForeignKeyError,
+    isNotFoundError,
+    isUniqueConstraintError,
+} from "@/lib/prisma-errors";
+
+// ---------------------------------------------------------------------------
+// Schemas
+// ---------------------------------------------------------------------------
 
 const expenseCategorySchema = z.enum([
     "FUEL",
@@ -12,113 +26,216 @@ const expenseCategorySchema = z.enum([
     "MISCELLANEOUS",
 ]);
 
-const expenseStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
+/**
+ * Partial update schema for PATCH.
+ * - Does NOT expose status — use dedicated /approve or /reject endpoints.
+ * - incurredAt cannot be a future date.
+ * - amount >= 0.
+ *
+ * Business rule: Cannot edit financial fields (amount, category) on APPROVED/REJECTED expenses.
+ * That check is done in the handler, not the schema.
+ */
+const expenseUpdateSchema = z
+    .object({
+        vehicleId: z.string().trim().min(1).optional(),
+        tripId: z.string().trim().min(1).optional().nullable(),
+        category: expenseCategorySchema.optional(),
+        amount: z.coerce.number().nonnegative("Amount cannot be negative").optional(),
+        description: z.string().trim().min(1).optional(),
+        receiptUrl: z.string().trim().url("receiptUrl must be a valid URL").optional().nullable(),
+        incurredAt: z.coerce.date().optional(),
+    })
+    .strict()
+    .superRefine((val, ctx) => {
+        if (Object.keys(val).length === 0) {
+            ctx.addIssue({ code: "custom", message: "At least one field is required" });
+        }
+        if (val.incurredAt && val.incurredAt > new Date()) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["incurredAt"],
+                message: "incurredAt cannot be a future date",
+            });
+        }
+    });
 
-const expenseUpdateSchema = z.object({
-    vehicleId: z.string().trim().min(1).optional(),
-    tripId: z.string().trim().min(1).optional().nullable(),
-    submittedById: z.string().trim().min(1).optional(),
-    category: expenseCategorySchema.optional(),
-    amount: z.coerce.number().positive().optional(),
-    description: z.string().trim().min(1).optional(),
-    receiptUrl: z.string().trim().min(1).optional().nullable(),
-    status: expenseStatusSchema.optional(),
-    reviewedById: z.string().trim().min(1).optional().nullable(),
-    reviewNote: z.string().trim().min(1).optional().nullable(),
-    reviewedAt: z.coerce.date().optional().nullable(),
-    incurredAt: z.coerce.date().optional(),
-}).strict();
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-function buildExpenseData(input: z.infer<typeof expenseUpdateSchema>) {
+function buildUpdateData(input: z.infer<typeof expenseUpdateSchema>): Record<string, unknown> {
     const data: Record<string, unknown> = {};
-
     if (input.vehicleId !== undefined) data.vehicleId = input.vehicleId;
     if (input.tripId !== undefined) data.tripId = input.tripId;
-    if (input.submittedById !== undefined) data.submittedById = input.submittedById;
     if (input.category !== undefined) data.category = input.category;
     if (input.amount !== undefined) data.amount = input.amount;
     if (input.description !== undefined) data.description = input.description;
     if (input.receiptUrl !== undefined) data.receiptUrl = input.receiptUrl;
-    if (input.status !== undefined) data.status = input.status;
-    if (input.reviewedById !== undefined) data.reviewedById = input.reviewedById;
-    if (input.reviewNote !== undefined) data.reviewNote = input.reviewNote;
-    if (input.reviewedAt !== undefined) data.reviewedAt = input.reviewedAt;
     if (input.incurredAt !== undefined) data.incurredAt = input.incurredAt;
-
     return data;
 }
 
-function isPrismaUniqueError(error: unknown) {
-    return error instanceof Error && "code" in error && (error as { code?: string }).code === "P2002";
-}
+type RouteContext = { params: Promise<{ id: string }> };
 
-function isPrismaNotFoundError(error: unknown) {
-    return error instanceof Error && "code" in error && (error as { code?: string }).code === "P2025";
-}
+// ---------------------------------------------------------------------------
+// GET /api/expenses/[id]
+// ---------------------------------------------------------------------------
 
-export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+/**
+ * Returns a single expense with full relation details.
+ *
+ * TODO: Integrate auth → DRIVER can only fetch their own expense.
+ */
+export async function GET(_request: Request, context: RouteContext) {
     const { id } = await context.params;
 
-    const expense = await prisma.expense.findUnique({ where: { id } });
+    try {
+        const expense = await prisma.expense.findUnique({
+            where: { id },
+            include: {
+                vehicle: { select: { id: true, registrationNo: true, make: true, model: true } },
+                trip: {
+                    select: {
+                        id: true,
+                        origin: true,
+                        destination: true,
+                        status: true,
+                        scheduledStart: true,
+                    },
+                },
+                submittedBy: { select: { id: true, name: true, email: true, role: true } },
+                reviewedBy: { select: { id: true, name: true, email: true } },
+            },
+        });
 
-    if (!expense) {
-        return NextResponse.json({ error: "Expense not found" }, { status: 404 });
+        if (!expense) return Errors.notFound("Expense");
+        return successResponse(expense);
+    } catch (error) {
+        console.error("[expenses/[id]:GET]", error);
+        return Errors.internal();
     }
-
-    return NextResponse.json(expense);
 }
 
-export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
-    const { id } = await context.params;
-    let payload: unknown;
+// ---------------------------------------------------------------------------
+// PATCH /api/expenses/[id]
+// ---------------------------------------------------------------------------
 
+/**
+ * Partially updates an expense's content fields.
+ *
+ * Business rules:
+ * - Cannot edit financial fields (amount, category) on APPROVED or REJECTED expenses.
+ *   Only description and receiptUrl may be updated on a closed expense.
+ * - incurredAt cannot be a future date.
+ * - Status changes go through dedicated /approve and /reject endpoints.
+ *
+ * TODO: Integrate RBAC → ADMIN, MANAGER; DRIVER can only edit their own PENDING expenses.
+ */
+export async function PATCH(request: Request, context: RouteContext) {
+    const { id } = await context.params;
+
+    let payload: unknown;
     try {
         payload = await request.json();
     } catch {
-        return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+        return Errors.invalidJson();
     }
 
     const parsed = expenseUpdateSchema.safeParse(payload);
+    if (!parsed.success) {
+        const flat = parsed.error.flatten();
+        return errorResponse(
+            "VALIDATION_ERROR",
+            "Validation failed",
+            422,
+            flat.fieldErrors as Record<string, string[]>,
+        );
+    }
 
-    if (!parsed.success || Object.keys(parsed.data).length === 0) {
-        return NextResponse.json({ error: "Validation failed", issues: parsed.success ? { formErrors: ["At least one field is required"] } : parsed.error.flatten() }, { status: 400 });
+    const input = parsed.data;
+
+    // Business rule: incurredAt not in future
+    if (input.incurredAt && input.incurredAt > new Date()) {
+        return Errors.futureDate("incurredAt");
+    }
+
+    // Fetch existing expense to enforce business rules
+    const existing = await prisma.expense.findUnique({
+        where: { id },
+        select: { status: true },
+    });
+
+    if (!existing) return Errors.notFound("Expense");
+
+    // Business rule: cannot change financial fields on a closed expense
+    if (
+        existing.status !== "PENDING" &&
+        (input.amount !== undefined || input.category !== undefined || input.incurredAt !== undefined)
+    ) {
+        return errorResponse(
+            "INVALID_STATE",
+            `Cannot modify financial fields on a ${existing.status} expense. Only description and receiptUrl may be updated.`,
+            409,
+        );
     }
 
     try {
-        const expense = await prisma.expense.update({
+        const updated = await prisma.expense.update({
             where: { id },
-            data: buildExpenseData(parsed.data),
+            data: buildUpdateData(input),
+            include: {
+                vehicle: { select: { id: true, registrationNo: true } },
+                submittedBy: { select: { id: true, name: true, email: true } },
+                reviewedBy: { select: { id: true, name: true, email: true } },
+            },
         });
-
-        return NextResponse.json(expense);
+        return successResponse(updated);
     } catch (error) {
-        if (isPrismaNotFoundError(error)) {
-            return NextResponse.json({ error: "Expense not found" }, { status: 404 });
-        }
-
-        if (isPrismaUniqueError(error)) {
-            return NextResponse.json({ error: "Expense already exists" }, { status: 409 });
-        }
-
-        if (error instanceof Error && "code" in error && (error as { code?: string }).code === "P2003") {
-            return NextResponse.json({ error: "Referenced vehicle, trip, or user was not found" }, { status: 409 });
-        }
-
-        return NextResponse.json({ error: "Failed to update expense" }, { status: 500 });
+        console.error("[expenses/[id]:PATCH]", error);
+        if (isNotFoundError(error)) return Errors.notFound("Expense");
+        if (isUniqueConstraintError(error)) return Errors.conflict("Expense already exists with these details");
+        if (isForeignKeyError(error)) return Errors.conflict("Referenced vehicle or trip was not found");
+        return Errors.internal();
     }
 }
 
-export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+// ---------------------------------------------------------------------------
+// DELETE /api/expenses/[id]
+// ---------------------------------------------------------------------------
+
+/**
+ * Deletes an expense.
+ *
+ * Business rule: Cannot delete an APPROVED expense.
+ *
+ * TODO: Integrate RBAC → ADMIN only.
+ */
+export async function DELETE(_request: Request, context: RouteContext) {
     const { id } = await context.params;
+
+    // Check existence and status before deleting
+    const existing = await prisma.expense.findUnique({
+        where: { id },
+        select: { status: true },
+    });
+
+    if (!existing) return Errors.notFound("Expense");
+
+    // Business rule: APPROVED expenses cannot be deleted (financial integrity)
+    if (existing.status === "APPROVED") {
+        return errorResponse(
+            "INVALID_STATE",
+            "Cannot delete an approved expense. Reject it first if removal is required.",
+            409,
+        );
+    }
 
     try {
         await prisma.expense.delete({ where: { id } });
-        return new NextResponse(null, { status: 204 });
+        return noContentResponse();
     } catch (error) {
-        if (isPrismaNotFoundError(error)) {
-            return NextResponse.json({ error: "Expense not found" }, { status: 404 });
-        }
-
-        return NextResponse.json({ error: "Failed to delete expense" }, { status: 500 });
+        console.error("[expenses/[id]:DELETE]", error);
+        if (isNotFoundError(error)) return Errors.notFound("Expense");
+        return Errors.internal();
     }
 }
