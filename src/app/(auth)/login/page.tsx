@@ -116,7 +116,6 @@ export default function LoginPage() {
                   required
                   className={`w-full px-md py-lg bg-surface-container-low rounded-lg text-on-surface font-body-md border focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${error ? 'border-error' : 'border-outline-variant focus:border-primary'}`}
                   placeholder="name@company.com"
-                  defaultValue="admin@transitops.com"
                 />
               </div>
             </div>
@@ -137,7 +136,6 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   required
                   className={`w-full px-md py-lg pr-12 bg-surface-container-low rounded-lg text-on-surface font-body-md border focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${error ? 'border-error' : 'border-outline-variant focus:border-primary'}`}
-                  defaultValue="Admin@123"
                 />
                 <button
                   type="button"
