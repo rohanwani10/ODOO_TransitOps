@@ -37,6 +37,7 @@ model Vehicle {
   status             VehicleStatus    @default(AVAILABLE)
   odometerKm         Int              @default(0) @map("odometer_km")
   seatingCapacity    Int?             @map("seating_capacity")
+  payloadCapacityKg  Int?             @map("payload_capacity_kg")
   insurancePolicyNo  String?          @map("insurance_policy_no")
   insuranceExpiry    DateTime?        @map("insurance_expiry")
   registrationExpiry DateTime?        @map("registration_expiry")
@@ -91,9 +92,12 @@ model Trip {
   startOdometer  Int?       @map("start_odometer")
   endOdometer    Int?       @map("end_odometer")
   distanceKm     Int?       @map("distance_km")
+  cargoWeightKg  Int?       @map("cargo_weight_kg")
   purpose        String?
   status         TripStatus @default(SCHEDULED)
   notes          String?
+  dispatchedAt   DateTime?  @map("dispatched_at")
+  completedAt    DateTime?  @map("completed_at")
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
   expenses       Expense[]
@@ -209,6 +213,7 @@ enum Role {
 
 enum VehicleStatus {
   AVAILABLE
+  ON_TRIP
   IN_USE
   MAINTENANCE
   OUT_OF_SERVICE
@@ -233,12 +238,16 @@ enum FuelType {
 }
 
 enum DriverStatus {
+  AVAILABLE
+  ON_TRIP
   ACTIVE
   INACTIVE
   SUSPENDED
 }
 
 enum TripStatus {
+  DRAFT
+  DISPATCHED
   SCHEDULED
   IN_PROGRESS
   COMPLETED

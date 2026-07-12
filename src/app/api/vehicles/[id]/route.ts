@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 const vehicleStatusSchema = z.enum([
     "AVAILABLE",
+    "ON_TRIP",
     "IN_USE",
     "MAINTENANCE",
     "OUT_OF_SERVICE",
@@ -31,6 +32,7 @@ const vehicleUpdateSchema = z.object({
     status: vehicleStatusSchema.optional(),
     odometerKm: z.coerce.number().int().min(0).optional(),
     seatingCapacity: z.coerce.number().int().positive().optional().nullable(),
+    payloadCapacityKg: z.coerce.number().int().positive().optional().nullable(),
     insurancePolicyNo: z.string().trim().min(1).optional().nullable(),
     insuranceExpiry: z.coerce.date().optional().nullable(),
     registrationExpiry: z.coerce.date().optional().nullable(),
@@ -53,6 +55,7 @@ function buildVehicleData(input: z.infer<typeof vehicleUpdateSchema>) {
     if (input.status !== undefined) data.status = input.status;
     if (input.odometerKm !== undefined) data.odometerKm = input.odometerKm;
     if (input.seatingCapacity !== undefined) data.seatingCapacity = input.seatingCapacity;
+    if (input.payloadCapacityKg !== undefined) data.payloadCapacityKg = input.payloadCapacityKg;
     if (input.insurancePolicyNo !== undefined) data.insurancePolicyNo = input.insurancePolicyNo;
     if (input.insuranceExpiry !== undefined) data.insuranceExpiry = input.insuranceExpiry;
     if (input.registrationExpiry !== undefined) data.registrationExpiry = input.registrationExpiry;

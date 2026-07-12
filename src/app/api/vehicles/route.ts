@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 const vehicleStatusSchema = z.enum([
     "AVAILABLE",
+    "ON_TRIP",
     "IN_USE",
     "MAINTENANCE",
     "OUT_OF_SERVICE",
@@ -31,17 +32,14 @@ const vehicleCreateSchema = z.object({
     status: vehicleStatusSchema.optional(),
     odometerKm: z.coerce.number().int().min(0).optional(),
     seatingCapacity: z.coerce.number().int().positive().optional().nullable(),
+    payloadCapacityKg: z.coerce.number().int().positive().optional().nullable(),
     insurancePolicyNo: z.string().trim().min(1).optional().nullable(),
     insuranceExpiry: z.coerce.date().optional().nullable(),
     registrationExpiry: z.coerce.date().optional().nullable(),
     imageUrl: z.string().trim().min(1).optional().nullable(),
 }).strict();
 
-const vehicleUpdateSchema = vehicleCreateSchema.partial().superRefine((value, context) => {
-    if (Object.keys(value).length === 0) {
-        context.addIssue({ code: "custom", message: "At least one field is required" });
-    }
-});
+
 
 function parsePagination(url: URL) {
     const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
@@ -65,6 +63,7 @@ function buildVehicleData(input: z.infer<typeof vehicleCreateSchema>) {
         status: input.status ?? "AVAILABLE",
         odometerKm: input.odometerKm ?? 0,
         seatingCapacity: input.seatingCapacity ?? null,
+        payloadCapacityKg: input.payloadCapacityKg ?? null,
         insurancePolicyNo: input.insurancePolicyNo ?? null,
         insuranceExpiry: input.insuranceExpiry ?? null,
         registrationExpiry: input.registrationExpiry ?? null,
@@ -107,9 +106,7 @@ function isPrismaUniqueError(error: unknown) {
     return error instanceof Error && "code" in error && (error as { code?: string }).code === "P2002";
 }
 
-function isPrismaNotFoundError(error: unknown) {
-    return error instanceof Error && "code" in error && (error as { code?: string }).code === "P2025";
-}
+
 
 export async function GET(request: Request) {
     const url = new URL(request.url);

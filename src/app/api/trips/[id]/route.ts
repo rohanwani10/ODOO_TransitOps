@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
-const tripStatusSchema = z.enum(["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
+const tripStatusSchema = z.enum(["DRAFT", "DISPATCHED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
 
 const tripUpdateSchema = z
     .object({
@@ -17,6 +17,7 @@ const tripUpdateSchema = z
         startOdometer: z.coerce.number().int().min(0).optional().nullable(),
         endOdometer: z.coerce.number().int().min(0).optional().nullable(),
         distanceKm: z.coerce.number().int().min(0).optional().nullable(),
+        cargoWeightKg: z.coerce.number().int().positive().optional().nullable(),
         purpose: z.string().trim().min(1).optional().nullable(),
         status: tripStatusSchema.optional(),
         notes: z.string().trim().min(1).optional().nullable(),
@@ -50,6 +51,7 @@ function buildTripData(input: z.infer<typeof tripUpdateSchema>) {
     if (input.startOdometer !== undefined) data.startOdometer = input.startOdometer;
     if (input.endOdometer !== undefined) data.endOdometer = input.endOdometer;
     if (input.distanceKm !== undefined) data.distanceKm = input.distanceKm;
+    if (input.cargoWeightKg !== undefined) data.cargoWeightKg = input.cargoWeightKg;
     if (input.purpose !== undefined) data.purpose = input.purpose;
     if (input.status !== undefined) data.status = input.status;
     if (input.notes !== undefined) data.notes = input.notes;
