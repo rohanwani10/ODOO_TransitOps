@@ -19,21 +19,18 @@ export async function GET() {
         // Count by status (excluding soft-deleted)
         const statusCounts = await prisma.vehicle.groupBy({
             by: ["status"],
-            where: { deletedAt: null },
             _count: { id: true },
         });
 
         // Count by type (excluding soft-deleted and retired)
         const typeCounts = await prisma.vehicle.groupBy({
             by: ["type"],
-            where: { deletedAt: null, status: { not: "RETIRED" } },
+            where: { status: { not: "RETIRED" } },
             _count: { id: true },
         });
 
         // Total non-deleted vehicles
-        const total = await prisma.vehicle.count({
-            where: { deletedAt: null },
-        });
+        const total = await prisma.vehicle.count();
 
         // Build status map
         const byStatus: Record<string, number> = {};
@@ -47,18 +44,18 @@ export async function GET() {
             byType[row.type] = row._count.id;
         }
 
-        const activeVehicles =
-            total - (byStatus["RETIRED"] ?? 0);
+        const activeVehicles = total - (byStatus["RETIRED"] ?? 0);
         const availableVehicles = byStatus["AVAILABLE"] ?? 0;
+        const onTrip = byStatus["ON_TRIP"] ?? 0;
         const inUse = byStatus["IN_USE"] ?? 0;
         const inMaintenance = byStatus["MAINTENANCE"] ?? 0;
         const outOfService = byStatus["OUT_OF_SERVICE"] ?? 0;
         const retired = byStatus["RETIRED"] ?? 0;
 
-        // Fleet utilization % (vehicles on trip / active vehicles)
+        // Fleet utilization % (vehicles on trip or in use / active vehicles)
         const fleetUtilizationPct =
             activeVehicles > 0
-                ? Math.round((inUse / activeVehicles) * 10000) / 100
+                ? Math.round(((onTrip + inUse) / activeVehicles) * 10000) / 100
                 : 0;
 
         return NextResponse.json({
@@ -67,6 +64,7 @@ export async function GET() {
                 total,
                 activeVehicles,
                 availableVehicles,
+                onTrip,
                 inUse,
                 inMaintenance,
                 outOfService,

@@ -46,11 +46,6 @@ const vehicleCreateSchema = z.object({
     type: vehicleTypeSchema,
     fuelType: fuelTypeSchema,
     status: vehicleStatusSchema.optional(),
-    maxLoadCapacityKg: z.coerce
-        .number()
-        .positive("Max load capacity must be greater than 0")
-        .optional()
-        .nullable(),
     odometerKm: z.coerce
         .number()
         .int()
@@ -62,12 +57,12 @@ const vehicleCreateSchema = z.object({
         .positive("Seating capacity must be a positive number")
         .optional()
         .nullable(),
-    acquisitionCost: z.coerce
+    payloadCapacityKg: z.coerce
         .number()
-        .min(0, "Acquisition cost cannot be negative")
+        .int()
+        .positive("Payload capacity must be greater than 0")
         .optional()
         .nullable(),
-    region: z.string().trim().max(80).optional().nullable(),
     insurancePolicyNo: z.string().trim().min(1).optional().nullable(),
     insuranceExpiry: z.coerce.date().optional().nullable(),
     registrationExpiry: z.coerce.date().optional().nullable(),
@@ -105,9 +100,8 @@ const ALLOWED_SORT_FIELDS = [
     "fuelType",
     "status",
     "odometerKm",
-    "maxLoadCapacityKg",
-    "acquisitionCost",
-    "region",
+    "payloadCapacityKg",
+    "seatingCapacity",
     "createdAt",
     "updatedAt",
 ] as const;
@@ -136,11 +130,8 @@ function buildVehicleData(input: z.infer<typeof vehicleCreateSchema>) {
         type: input.type,
         fuelType: input.fuelType,
         status: input.status ?? "AVAILABLE",
-        maxLoadCapacityKg: input.maxLoadCapacityKg ?? null,
         odometerKm: input.odometerKm ?? 0,
         seatingCapacity: input.seatingCapacity ?? null,
-        acquisitionCost: input.acquisitionCost ?? null,
-        region: input.region ?? null,
         payloadCapacityKg: input.payloadCapacityKg ?? null,
         insurancePolicyNo: input.insurancePolicyNo ?? null,
         insuranceExpiry: input.insuranceExpiry ?? null,
@@ -154,12 +145,8 @@ function buildVehicleWhere(url: URL) {
     const status = url.searchParams.get("status");
     const type = url.searchParams.get("type");
     const fuelType = url.searchParams.get("fuelType");
-    const region = url.searchParams.get("region")?.trim();
 
     const filters: Record<string, unknown>[] = [];
-
-    // Soft-delete: always exclude soft-deleted vehicles
-    filters.push({ deletedAt: null });
 
     if (q) {
         filters.push({
@@ -167,7 +154,6 @@ function buildVehicleWhere(url: URL) {
                 { registrationNo: { contains: q, mode: "insensitive" } },
                 { make: { contains: q, mode: "insensitive" } },
                 { model: { contains: q, mode: "insensitive" } },
-                { region: { contains: q, mode: "insensitive" } },
             ],
         });
     }
@@ -184,14 +170,8 @@ function buildVehicleWhere(url: URL) {
         filters.push({ fuelType });
     }
 
-    if (region) {
-        filters.push({ region: { contains: region, mode: "insensitive" } });
-    }
-
-    if (filters.length === 1) {
-        return filters[0];
-    }
-
+    if (filters.length === 0) return undefined;
+    if (filters.length === 1) return filters[0];
     return { AND: filters };
 }
 

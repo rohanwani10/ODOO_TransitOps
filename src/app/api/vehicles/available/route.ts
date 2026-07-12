@@ -4,51 +4,33 @@ import { prisma } from "@/lib/prisma";
 // ---------------------------------------------------------------------------
 // GET /api/vehicles/available — Vehicles eligible for dispatch
 //
-// Returns only vehicles where:
-//   - status is AVAILABLE
-//   - not soft-deleted
-//
-// Per SRS §7.2 and Business Rules §1.8:
-//   "Retired or In Shop vehicles never appear in dispatch selection"
-//   "A vehicle already On Trip cannot be assigned to another trip"
+// Returns only vehicles where status is AVAILABLE.
+// Optionally filter by vehicle type and minimum payload capacity.
 // ---------------------------------------------------------------------------
 
 export async function GET(request: Request) {
     try {
         const url = new URL(request.url);
         const type = url.searchParams.get("type")?.trim();
-        const region = url.searchParams.get("region")?.trim();
         const minCapacity = url.searchParams.get("minCapacity");
 
-        const filters: Record<string, unknown>[] = [
-            { status: "AVAILABLE" },
-            { deletedAt: null },
-        ];
+        const where: Record<string, unknown> = { status: "AVAILABLE" };
 
         // Optional: filter by vehicle type
         if (type) {
-            filters.push({ type });
+            where.type = type;
         }
 
-        // Optional: filter by region
-        if (region) {
-            filters.push({
-                region: { contains: region, mode: "insensitive" },
-            });
-        }
-
-        // Optional: filter by minimum load capacity (for cargo weight validation)
+        // Optional: filter by minimum payload capacity (for cargo weight validation)
         if (minCapacity) {
-            const min = parseFloat(minCapacity);
+            const min = parseInt(minCapacity, 10);
             if (!isNaN(min) && min > 0) {
-                filters.push({
-                    maxLoadCapacityKg: { gte: min },
-                });
+                where.payloadCapacityKg = { gte: min };
             }
         }
 
         const vehicles = await prisma.vehicle.findMany({
-            where: { AND: filters },
+            where,
             orderBy: [{ make: "asc" }, { model: "asc" }],
             select: {
                 id: true,
@@ -58,10 +40,9 @@ export async function GET(request: Request) {
                 year: true,
                 type: true,
                 fuelType: true,
-                maxLoadCapacityKg: true,
+                payloadCapacityKg: true,
                 odometerKm: true,
                 seatingCapacity: true,
-                region: true,
             },
         });
 

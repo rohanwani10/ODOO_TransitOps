@@ -33,15 +33,6 @@ const tripCreateSchema = tripBaseSchema
         }
     });
 
-const tripUpdateSchema = tripBaseSchema.partial().superRefine((value, context) => {
-    if (Object.keys(value).length === 0) {
-        context.addIssue({ code: "custom", message: "At least one field is required" });
-    }
-
-    if (value.scheduledStart && value.scheduledEnd && value.scheduledEnd < value.scheduledStart) {
-        context.addIssue({ code: "custom", path: ["scheduledEnd"], message: "scheduledEnd must be after scheduledStart" });
-    }
-
 
 function parsePagination(url: URL) {
     const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);

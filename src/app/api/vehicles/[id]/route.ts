@@ -26,6 +26,19 @@ const vehicleTypeSchema = z.enum([
 
 const fuelTypeSchema = z.enum(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG"]);
 
+// Statuses automatically managed by the dispatch/complete/cancel engine
+const SYSTEM_CONTROLLED_STATUSES = ["ON_TRIP"] as const;
+
+// Which manual status transitions are permitted from each state
+const VALID_MANUAL_TRANSITIONS: Record<string, string[]> = {
+    AVAILABLE:     ["IN_USE", "MAINTENANCE", "OUT_OF_SERVICE", "RETIRED"],
+    IN_USE:        ["AVAILABLE", "MAINTENANCE", "OUT_OF_SERVICE"],
+    ON_TRIP:       [], // system-controlled; no manual transitions allowed
+    MAINTENANCE:   ["AVAILABLE", "OUT_OF_SERVICE"],
+    OUT_OF_SERVICE:["AVAILABLE", "MAINTENANCE", "RETIRED"],
+    RETIRED:       ["AVAILABLE"],
+};
+
 const vehicleUpdateSchema = z.object({
     registrationNumber: z.string().trim().min(1).optional(),
     make: z.string().trim().min(1).optional(),
@@ -58,8 +71,6 @@ function buildVehicleData(input: z.infer<typeof vehicleUpdateSchema>) {
     if (input.type !== undefined) data.type = input.type;
     if (input.fuelType !== undefined) data.fuelType = input.fuelType;
     if (input.status !== undefined) data.status = input.status;
-    if (input.maxLoadCapacityKg !== undefined)
-        data.maxLoadCapacityKg = input.maxLoadCapacityKg;
     if (input.odometerKm !== undefined) data.odometerKm = input.odometerKm;
     if (input.seatingCapacity !== undefined) data.seatingCapacity = input.seatingCapacity;
     if (input.payloadCapacityKg !== undefined) data.payloadCapacityKg = input.payloadCapacityKg;
@@ -126,8 +137,8 @@ export async function GET(
     const { id } = await context.params;
 
     try {
-        const vehicle = await prisma.vehicle.findFirst({
-            where: { id, deletedAt: null },
+        const vehicle = await prisma.vehicle.findUnique({
+            where: { id },
             include: {
                 _count: {
                     select: {
@@ -193,8 +204,8 @@ export async function PATCH(
     }
 
     // ── Fetch current vehicle ──
-    const existing = await prisma.vehicle.findFirst({
-        where: { id, deletedAt: null },
+    const existing = await prisma.vehicle.findUnique({
+        where: { id },
     });
 
     if (!existing) {
@@ -244,9 +255,9 @@ export async function PATCH(
         }
     }
 
-    // ── Business Rule: Cannot edit certain fields while On Trip or In Maintenance ──
+    // ── Business Rule: Cannot edit certain fields while On Trip ──
     if (
-        existing.status === "IN_USE" &&
+        existing.status === "ON_TRIP" &&
         parsed.data.status === undefined
     ) {
         // Allow only odometer update while on trip
@@ -257,7 +268,7 @@ export async function PATCH(
         );
         if (disallowed.length > 0) {
             return errorResponse(
-                "VEHICLE_IN_USE",
+                "VEHICLE_ON_TRIP",
                 `Vehicle is currently on a trip. Only odometer can be updated. Cannot modify: ${disallowed.join(", ")}`,
                 409
             );
@@ -302,8 +313,8 @@ export async function DELETE(
 ) {
     const { id } = await context.params;
 
-    const existing = await prisma.vehicle.findFirst({
-        where: { id, deletedAt: null },
+    const existing = await prisma.vehicle.findUnique({
+        where: { id },
     });
 
     if (!existing) {
@@ -311,9 +322,9 @@ export async function DELETE(
     }
 
     // Business Rule: Cannot delete a vehicle that is currently on a trip
-    if (existing.status === "IN_USE") {
+    if (existing.status === "ON_TRIP") {
         return errorResponse(
-            "VEHICLE_IN_USE",
+            "VEHICLE_ON_TRIP",
             "Cannot delete a vehicle that is currently on an active trip. Complete or cancel the trip first.",
             409
         );
@@ -332,7 +343,7 @@ export async function DELETE(
     const activeTrips = await prisma.trip.count({
         where: {
             vehicleId: id,
-            status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+            status: { in: ["DRAFT", "DISPATCHED", "SCHEDULED", "IN_PROGRESS"] },
         },
     });
 
@@ -345,11 +356,10 @@ export async function DELETE(
     }
 
     try {
-        // Soft delete: set deletedAt timestamp and retire the vehicle
+        // Hard delete the vehicle (retire it)
         const vehicle = await prisma.vehicle.update({
             where: { id },
             data: {
-                deletedAt: new Date(),
                 status: "RETIRED",
             },
         });
