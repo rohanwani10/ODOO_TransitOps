@@ -55,7 +55,9 @@ export const queryKeys = {
     list: (filters: Record<string, string>) => ["expenses", "list", filters] as const,
   },
   dashboard: {
-    stats: () => ["dashboard", "stats"] as const,
+    stats: (filters?: Record<string, string>) => (
+      filters ? (["dashboard", "stats", filters] as const) : (["dashboard", "stats"] as const)
+    ),
   },
 };
 
@@ -76,7 +78,6 @@ function buildQueryString(filters: Record<string, string>): string {
 // VEHICLES
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useVehicles(filters: Record<string, string> = {}) {
   return useQuery({
     queryKey: queryKeys.vehicles.list(filters),
@@ -85,7 +86,6 @@ export function useVehicles(filters: Record<string, string> = {}) {
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useVehicle(id: string) {
   return useQuery({
     queryKey: queryKeys.vehicles.detail(id),
@@ -106,7 +106,6 @@ export function useAvailableVehicles() {
 export function useCreateVehicle() {
   const queryClient = useQueryClient();
   return useMutation({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mutationFn: (data: Record<string, unknown>) =>
       fetchClient(`/vehicles`, {
         method: "POST",
@@ -114,6 +113,7 @@ export function useCreateVehicle() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats() });
     },
   });
 }
@@ -128,6 +128,7 @@ export function useUpdateVehicle() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats() });
     },
   });
 }
@@ -159,11 +160,11 @@ export function useVehicleStats() {
 // DASHBOARD STATS (combined)
 // ---------------------------------------------------------------------------
 
-export function useDashboardStats() {
+export function useDashboardStats(filters: Record<string, string> = {}) {
   return useQuery({
-    queryKey: queryKeys.dashboard.stats(),
+    queryKey: queryKeys.dashboard.stats(filters),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    queryFn: () => fetchClient<ApiResponse<any>>(`/dashboard/stats`),
+    queryFn: () => fetchClient<ApiResponse<any>>(`/dashboard/stats${buildQueryString(filters)}`),
   });
 }
 
@@ -198,6 +199,7 @@ export function useCreateDriver() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.drivers.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats() });
     },
   });
 }
@@ -247,6 +249,10 @@ export function useCreateTrip() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.trips.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.available() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.drivers.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats() });
     },
   });
 }
@@ -343,6 +349,8 @@ export function useCreateFuelLog() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.fuelLogs.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats() });
     },
   });
 }
@@ -369,6 +377,7 @@ export function useCreateExpense() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats() });
     },
   });
 }

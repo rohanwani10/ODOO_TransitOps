@@ -51,7 +51,7 @@ export async function fetchClient<T>(
           window.location.href = "/login";
         }
       }
-    } catch (e) {
+    } catch {
       useAuthStore.getState().logout();
       if (typeof window !== "undefined") {
         window.location.href = "/login";
@@ -61,9 +61,15 @@ export async function fetchClient<T>(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    const apiError = errorData.error;
+    const message =
+      typeof apiError === "string"
+        ? apiError
+        : apiError?.message ?? errorData.message;
+
     throw new ApiError(
       response.status,
-      errorData.error || errorData.message || `Request failed with status ${response.status}`
+      message || `Request failed with status ${response.status}`
     );
   }
 

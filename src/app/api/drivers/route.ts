@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { hashPassword } from "@/lib/auth";
 
 const driverStatusSchema = z.enum(["AVAILABLE", "ON_TRIP", "ACTIVE", "INACTIVE", "SUSPENDED"]);
 
 const driverCreateSchema = z.object({
-    userId: z.string().trim().min(1),
+    userId: z.string().trim().min(1).optional(),
+    name: z.string().trim().min(1).optional(),
+    email: z.string().trim().email().optional(),
+    password: z.string().min(6).optional(),
+    role: z.enum(["FLEET_MANAGER", "DISPATCHER", "SAFETY_OFFICER", "FINANCIAL_ANALYST"]).optional(),
     licenseNumber: z.string().trim().min(1).optional(),
     licenseNo: z.string().trim().min(1).optional(),
     licenseExpiry: z.coerce.date(),
@@ -17,7 +22,15 @@ const driverCreateSchema = z.object({
     emergencyPhone: z.string().trim().min(1).optional().nullable(),
     imageUrl: z.string().trim().min(1).optional().nullable(),
     hiredAt: z.coerce.date().optional(),
-}).strict();
+}).strict().superRefine((value, context) => {
+    if (!value.userId && (!value.name || !value.email || !value.password)) {
+        context.addIssue({
+            code: "custom",
+            path: ["email"],
+            message: "Provide an existing user or new driver user details",
+        });
+    }
+});
 
 function parsePagination(url: URL) {
     const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
@@ -39,6 +52,10 @@ function buildDriverData(input: z.infer<typeof driverCreateSchema>) {
 
     if (!licenseNo) {
         throw new Error("LICENSE_NUMBER_REQUIRED");
+    }
+
+    if (!input.userId) {
+        throw new Error("USER_REQUIRED");
     }
 
     return {
@@ -163,9 +180,11 @@ export async function POST(request: Request) {
         );
     }
 
-    const user = await prisma.user.findUnique({ where: { id: parsed.data.userId } });
+    const user = parsed.data.userId
+        ? await prisma.user.findUnique({ where: { id: parsed.data.userId } })
+        : null;
 
-    if (!user) {
+    if (parsed.data.userId && !user) {
         return NextResponse.json(
             { success: false, error: { code: "NOT_FOUND", message: "User not found" } },
             { status: 404 },
@@ -173,16 +192,29 @@ export async function POST(request: Request) {
     }
 
     try {
-        const driver = await prisma.driver.create({
-            data: buildDriverData({
-                ...parsed.data,
-                licenseNumber: licenseNo,
-            }),
-            include: {
-                user: {
-                    select: { id: true, name: true, email: true, role: true },
+        const driver = await prisma.$transaction(async (tx) => {
+            const driverUser = user ?? await tx.user.create({
+                data: {
+                    name: parsed.data.name!,
+                    email: parsed.data.email!,
+                    passwordHash: await hashPassword(parsed.data.password!),
+                    role: parsed.data.role ?? "DISPATCHER",
+                    isActive: true,
                 },
-            },
+            });
+
+            return tx.driver.create({
+                data: buildDriverData({
+                    ...parsed.data,
+                    userId: driverUser.id,
+                    licenseNumber: licenseNo,
+                }),
+                include: {
+                    user: {
+                        select: { id: true, name: true, email: true, role: true },
+                    },
+                },
+            });
         });
 
         return NextResponse.json({ success: true, data: driver }, { status: 201 });
