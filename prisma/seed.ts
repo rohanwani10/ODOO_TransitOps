@@ -131,6 +131,7 @@ async function seedVehicles() {
       type: "BUS" as const,
       fuelType: "DIESEL" as const,
       status: "AVAILABLE" as const,
+      payloadCapacityKg: 5000,
       odometerKm: 48200,
       seatingCapacity: 52,
       insurancePolicyNo: "ICICI-BUS-00123",
@@ -145,6 +146,7 @@ async function seedVehicles() {
       type: "BUS" as const,
       fuelType: "DIESEL" as const,
       status: "IN_USE" as const,
+      payloadCapacityKg: 4500,
       odometerKm: 72100,
       seatingCapacity: 40,
       insurancePolicyNo: "HDFC-BUS-00456",
@@ -159,6 +161,7 @@ async function seedVehicles() {
       type: "MINIBUS" as const,
       fuelType: "DIESEL" as const,
       status: "AVAILABLE" as const,
+      payloadCapacityKg: 1800,
       odometerKm: 21500,
       seatingCapacity: 17,
       insurancePolicyNo: "NIC-VAN-00789",
@@ -173,6 +176,7 @@ async function seedVehicles() {
       type: "CAR" as const,
       fuelType: "PETROL" as const,
       status: "MAINTENANCE" as const,
+      payloadCapacityKg: 500,
       odometerKm: 15300,
       seatingCapacity: 7,
       insurancePolicyNo: "BAJ-CAR-01011",
@@ -187,6 +191,7 @@ async function seedVehicles() {
       type: "TRUCK" as const,
       fuelType: "DIESEL" as const,
       status: "AVAILABLE" as const,
+      payloadCapacityKg: 1500,
       odometerKm: 93800,
       seatingCapacity: null,
       insurancePolicyNo: "OIC-TRK-01213",
@@ -333,7 +338,7 @@ async function seedTripsAndLogs() {
   });
 
   // Scheduled trip — minibus + driver3
-  const trip3 = await prisma.trip.create({
+  await prisma.trip.create({
     data: {
       vehicleId: minibus.id,
       driverId: driver3.id,

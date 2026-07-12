@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
-const tripStatusSchema = z.enum(["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
+const tripStatusSchema = z.enum(["DRAFT", "DISPATCHED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
 
-const tripCreateSchema = z
-    .object({
+const tripBaseSchema = z.object({
         vehicleId: z.string().trim().min(1),
         driverId: z.string().trim().min(1),
         origin: z.string().trim().min(1),
@@ -17,11 +16,13 @@ const tripCreateSchema = z
         startOdometer: z.coerce.number().int().min(0).optional().nullable(),
         endOdometer: z.coerce.number().int().min(0).optional().nullable(),
         distanceKm: z.coerce.number().int().min(0).optional().nullable(),
+        cargoWeightKg: z.coerce.number().int().positive().optional().nullable(),
         purpose: z.string().trim().min(1).optional().nullable(),
         status: tripStatusSchema.optional(),
         notes: z.string().trim().min(1).optional().nullable(),
-    })
-    .strict()
+    }).strict();
+
+const tripCreateSchema = tripBaseSchema
     .superRefine((value, context) => {
         if (value.scheduledEnd < value.scheduledStart) {
             context.addIssue({ code: "custom", path: ["scheduledEnd"], message: "scheduledEnd must be after scheduledStart" });
@@ -32,19 +33,6 @@ const tripCreateSchema = z
         }
     });
 
-const tripUpdateSchema = tripCreateSchema.partial().superRefine((value, context) => {
-    if (Object.keys(value).length === 0) {
-        context.addIssue({ code: "custom", message: "At least one field is required" });
-    }
-
-    if (value.scheduledStart && value.scheduledEnd && value.scheduledEnd < value.scheduledStart) {
-        context.addIssue({ code: "custom", path: ["scheduledEnd"], message: "scheduledEnd must be after scheduledStart" });
-    }
-
-    if (value.actualStart && value.actualEnd && value.actualEnd < value.actualStart) {
-        context.addIssue({ code: "custom", path: ["actualEnd"], message: "actualEnd must be after actualStart" });
-    }
-});
 
 function parsePagination(url: URL) {
     const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
@@ -89,8 +77,9 @@ function buildTripData(input: z.infer<typeof tripCreateSchema>) {
         startOdometer: input.startOdometer ?? null,
         endOdometer: input.endOdometer ?? null,
         distanceKm: input.distanceKm ?? null,
+        cargoWeightKg: input.cargoWeightKg ?? null,
         purpose: input.purpose ?? null,
-        status: input.status ?? "SCHEDULED",
+        status: input.status ?? "DRAFT",
         notes: input.notes ?? null,
     };
 }
@@ -99,9 +88,7 @@ function isPrismaUniqueError(error: unknown) {
     return error instanceof Error && "code" in error && (error as { code?: string }).code === "P2002";
 }
 
-function isPrismaNotFoundError(error: unknown) {
-    return error instanceof Error && "code" in error && (error as { code?: string }).code === "P2025";
-}
+
 
 export async function GET(request: Request) {
     const url = new URL(request.url);

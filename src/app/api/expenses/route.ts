@@ -29,41 +29,22 @@ const expenseCategorySchema = z.enum([
 
 const expenseStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
 
-/**
- * Create schema — enforces all SRS §10 validation rules:
- * - amount >= 0 (SRS: "cost >= 0"; 0 is valid)
- * - incurredAt (expense_date) cannot be a future date
- * - status always defaults to PENDING on creation
- */
-const expenseCreateSchema = z
-    .object({
-        vehicleId: z.string().trim().min(1, "vehicleId is required"),
-        tripId: z.string().trim().min(1).optional().nullable(),
-        submittedById: z.string().trim().min(1, "submittedById is required"),
-        category: expenseCategorySchema,
-        // SRS §10: amount >= 0 (0 is valid — e.g., a comped toll)
-        amount: z.coerce
-            .number({ invalid_type_error: "amount must be a number" })
-            .nonnegative("Amount cannot be negative"),
-        description: z.string().trim().min(1, "description is required"),
-        receiptUrl: z.string().trim().url("receiptUrl must be a valid URL").optional().nullable(),
-        // status on create is always PENDING — field accepted but will be overridden
-        status: expenseStatusSchema.optional(),
-        incurredAt: z.coerce.date({
-            invalid_type_error: "incurredAt must be a valid date",
-        }),
-    })
-    .strict()
-    .superRefine((val, ctx) => {
-        // SRS §10: date fields cannot be in the future
-        if (val.incurredAt > new Date()) {
-            ctx.addIssue({
-                code: "custom",
-                path: ["incurredAt"],
-                message: "incurredAt cannot be a future date",
-            });
-        }
-    });
+const expenseCreateSchema = z.object({
+    vehicleId: z.string().trim().min(1),
+    tripId: z.string().trim().min(1).optional().nullable(),
+    submittedById: z.string().trim().min(1),
+    category: expenseCategorySchema,
+    amount: z.coerce.number().positive(),
+    description: z.string().trim().min(1),
+    receiptUrl: z.string().trim().min(1).optional().nullable(),
+    status: expenseStatusSchema.optional(),
+    reviewedById: z.string().trim().min(1).optional().nullable(),
+    reviewNote: z.string().trim().min(1).optional().nullable(),
+    reviewedAt: z.coerce.date().optional().nullable(),
+    incurredAt: z.coerce.date(),
+}).strict();
+
+
 
 /**
  * Partial update schema — at least one field required.
