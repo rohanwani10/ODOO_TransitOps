@@ -5,6 +5,8 @@ import { z } from "zod";
 const querySchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),
+  vehicleId: z.string().optional(),
+  region: z.string().optional(),
 });
 
 export async function GET(request: Request) {
@@ -20,7 +22,15 @@ export async function GET(request: Request) {
       );
     }
 
-    const { startDate, endDate } = parsed.data;
+    const { startDate, endDate, vehicleId, region } = parsed.data;
+    const vehicleWhere = {
+      ...(vehicleId && { id: vehicleId }),
+      ...(region && { region }),
+    };
+    const relatedVehicleWhere = {
+      ...(vehicleId && { vehicleId }),
+      ...(region && { vehicle: { region } }),
+    };
 
     let dateFilter = {};
     let dateFilterTrips = {};
@@ -40,6 +50,15 @@ export async function GET(request: Request) {
       };
     }
 
+    const fuelExpenseWhere = {
+      ...dateFilter,
+      ...relatedVehicleWhere,
+    };
+    const tripWhere = {
+      ...dateFilterTrips,
+      ...relatedVehicleWhere,
+    };
+
     const [
       vehicleStatusCounts,
       tripStatusCounts,
@@ -54,11 +73,12 @@ export async function GET(request: Request) {
       prisma.vehicle.groupBy({
         by: ["status"],
         _count: { id: true },
+        where: vehicleWhere,
       }),
       prisma.trip.groupBy({
         by: ["status"],
         _count: { id: true },
-        where: dateFilterTrips,
+        where: tripWhere,
       }),
       prisma.driver.groupBy({
         by: ["status"],
@@ -67,22 +87,23 @@ export async function GET(request: Request) {
       prisma.driver.count(),
       prisma.fuelLog.aggregate({
         _sum: { quantity: true, totalCost: true },
-        where: dateFilter,
+        where: fuelExpenseWhere,
       }),
       prisma.maintenanceLog.aggregate({
         _sum: { cost: true },
-        where: dateFilter,
+        where: fuelExpenseWhere,
       }),
       prisma.expense.aggregate({
         _sum: { amount: true },
-        where: dateFilter,
+        where: fuelExpenseWhere,
       }),
       prisma.trip.aggregate({
         _sum: { distanceKm: true, revenue: true },
-        where: dateFilterTrips,
+        where: tripWhere,
       }),
       prisma.vehicle.aggregate({
         _sum: { acquisitionCost: true },
+        where: vehicleWhere,
       }),
     ]);
 

@@ -66,6 +66,7 @@ const vehicleCreateSchema = z.object({
     insurancePolicyNo: z.string().trim().min(1).optional().nullable(),
     insuranceExpiry: z.coerce.date().optional().nullable(),
     registrationExpiry: z.coerce.date().optional().nullable(),
+    region: z.string().trim().min(1).optional().nullable(),
     imageUrl: z.string().trim().min(1).optional().nullable(),
 }).strict();
 
@@ -136,6 +137,7 @@ function buildVehicleData(input: z.infer<typeof vehicleCreateSchema>) {
         insurancePolicyNo: input.insurancePolicyNo ?? null,
         insuranceExpiry: input.insuranceExpiry ?? null,
         registrationExpiry: input.registrationExpiry ?? null,
+        region: input.region ?? null,
         imageUrl: input.imageUrl ?? null,
     };
 }

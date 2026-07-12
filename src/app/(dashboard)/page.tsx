@@ -2,19 +2,44 @@
 
 import { KPICard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
-import { RefreshCcw, Calendar, ChevronDown, CheckCircle2, Wrench, Navigation, Clock, Loader2, Users } from "lucide-react";
+import { useMemo, useState } from "react";
+import { RefreshCcw, Calendar, CheckCircle2, Wrench, Navigation, Clock, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useDashboardStats } from "@/lib/api-hooks";
+import { useDashboardStats, useVehicles } from "@/lib/api-hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api-hooks";
 
 export default function DashboardPage() {
-  const { data: response, isLoading, isError, dataUpdatedAt } = useDashboardStats();
+  const [range, setRange] = useState("30");
+  const [vehicleId, setVehicleId] = useState("");
+  const [region, setRegion] = useState("");
   const queryClient = useQueryClient();
+  const dashboardFilters = useMemo(() => {
+    const filters: Record<string, string> = {};
+    if (range !== "all") {
+      const start = new Date();
+      start.setDate(start.getDate() - Number(range));
+      filters.startDate = start.toISOString();
+      filters.endDate = new Date().toISOString();
+    }
+    if (vehicleId) filters.vehicleId = vehicleId;
+    if (region) filters.region = region;
+    return filters;
+  }, [range, vehicleId, region]);
+  const { data: response, isLoading, isError, dataUpdatedAt } = useDashboardStats(dashboardFilters);
+  const { data: vehiclesResponse } = useVehicles({ limit: "100" });
   const stats = response?.data;
+  const vehicles = vehiclesResponse?.data ?? [];
+  const regions = Array.from(
+    new Set(
+      vehicles
+        .map((vehicle: { region?: string | null }) => vehicle.region)
+        .filter((value: string | null | undefined): value is string => Boolean(value))
+    )
+  );
 
   const lastUpdated = dataUpdatedAt
-    ? `Last updated ${Math.round((Date.now() - dataUpdatedAt) / 1000)}s ago`
+    ? `Updated ${new Date(dataUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
     : "";
 
   const handleRefresh = () => {
@@ -29,19 +54,42 @@ export default function DashboardPage() {
         subtitle="/ ops_dashboard_v4.2"
         filters={
           <>
-            <div className="flex items-center gap-xs px-3 py-1.5 bg-surface rounded-lg cursor-pointer hover:bg-surface-container-high transition-colors">
+            <label className="flex items-center gap-xs px-3 py-1.5 bg-surface rounded-lg">
               <Calendar className="w-4 h-4 text-on-surface-variant" />
-              <span className="font-label-md text-label-md">Last 30 Days</span>
-            </div>
+              <select
+                value={range}
+                onChange={(event) => setRange(event.target.value)}
+                className="bg-transparent font-label-md text-label-md outline-none"
+              >
+                <option value="7">Last 7 Days</option>
+                <option value="30">Last 30 Days</option>
+                <option value="90">Last 90 Days</option>
+                <option value="all">All Time</option>
+              </select>
+            </label>
             <div className="h-6 w-px bg-outline-variant/30"></div>
-            <div className="flex items-center gap-xs px-3 py-1.5 bg-surface rounded-lg cursor-pointer hover:bg-surface-container-high transition-colors">
-              <span className="font-label-md text-label-md">All Vehicles</span>
-              <ChevronDown className="w-4 h-4 text-on-surface-variant" />
-            </div>
-            <div className="flex items-center gap-xs px-3 py-1.5 bg-surface rounded-lg cursor-pointer hover:bg-surface-container-high transition-colors">
-              <span className="font-label-md text-label-md">All Regions</span>
-              <ChevronDown className="w-4 h-4 text-on-surface-variant" />
-            </div>
+            <select
+              value={vehicleId}
+              onChange={(event) => setVehicleId(event.target.value)}
+              className="h-8 rounded-lg border border-outline-variant bg-surface px-3 font-label-md text-label-md outline-none focus:border-primary"
+            >
+              <option value="">All Vehicles</option>
+              {vehicles.map((vehicle: { id: string; registrationNo: string; make: string; model: string }) => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  {vehicle.registrationNo} - {vehicle.make} {vehicle.model}
+                </option>
+              ))}
+            </select>
+            <select
+              value={region}
+              onChange={(event) => setRegion(event.target.value)}
+              className="h-8 rounded-lg border border-outline-variant bg-surface px-3 font-label-md text-label-md outline-none focus:border-primary"
+            >
+              <option value="">All Regions</option>
+              {regions.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
             <Button
               size="sm"
               className="ml-2 bg-primary text-on-primary hover:bg-primary-container shadow-none h-8 rounded-lg"

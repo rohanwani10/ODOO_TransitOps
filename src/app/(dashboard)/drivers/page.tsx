@@ -5,9 +5,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, Column } from "@/components/shared/data-table";
 import { StatusBadge, StatusType } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, ChevronLeft, ChevronRight, Loader2, Filter } from "lucide-react";
-import Link from "next/link";
+import { Search, ChevronLeft, ChevronRight, Loader2, Filter } from "lucide-react";
 import { useDrivers } from "@/lib/api-hooks";
+import { AddDriverDialog } from "@/components/shared/entity-create-dialogs";
 
 // Map DB enum → StatusBadge type
 function mapDriverStatus(status: string): StatusType {
@@ -122,13 +122,7 @@ export default function DriversPage() {
       <PageHeader
         title="Drivers"
         subtitle="Manage fleet personnel and compliance"
-        actions={
-          <Link href="/drivers/new">
-            <Button className="bg-primary text-on-primary hover:bg-primary-container shadow-none h-10 rounded-lg">
-              <Plus className="w-4 h-4 mr-2" /> Add Driver
-            </Button>
-          </Link>
-        }
+        actions={<AddDriverDialog />}
         filters={
           <>
             <div className="relative flex-1 min-w-[240px]">

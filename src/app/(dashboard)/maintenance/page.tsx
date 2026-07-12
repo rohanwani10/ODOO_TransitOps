@@ -5,8 +5,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, Column } from "@/components/shared/data-table";
 import { StatusBadge, StatusType } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, Wrench, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Search, Filter, Wrench, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useMaintenanceLogs } from "@/lib/api-hooks";
+import { AddMaintenanceDialog } from "@/components/shared/entity-create-dialogs";
 
 function mapMaintenanceStatus(status: string): StatusType {
   const map: Record<string, StatusType> = {
@@ -117,11 +118,7 @@ export default function MaintenancePage() {
       <PageHeader
         title="Maintenance Log"
         subtitle="Track vehicle service and repairs"
-        actions={
-          <Button className="bg-primary text-on-primary hover:bg-primary-container shadow-none h-10 rounded-lg">
-            <Plus className="w-4 h-4 mr-2" /> Log Maintenance
-          </Button>
-        }
+        actions={<AddMaintenanceDialog />}
         filters={
           <>
             <div className="relative flex-1 min-w-[240px]">

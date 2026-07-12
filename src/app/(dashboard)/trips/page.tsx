@@ -5,9 +5,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge, StatusType } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, ChevronLeft, ChevronRight, Loader2, MapPin, Play, CheckCircle2, XCircle } from "lucide-react";
-import Link from "next/link";
+import { Search, ChevronLeft, ChevronRight, Loader2, MapPin, Play, CheckCircle2, XCircle } from "lucide-react";
 import { useTrips, useDispatchTrip, useCompleteTrip, useCancelTrip } from "@/lib/api-hooks";
+import { AddTripDialog } from "@/components/shared/entity-create-dialogs";
 
 function mapTripStatus(status: string): StatusType {
   const map: Record<string, StatusType> = {
@@ -206,13 +206,7 @@ export default function TripsPage() {
       <PageHeader
         title="Trips"
         subtitle="Schedule and monitor fleet routes"
-        actions={
-          <Link href="/trips/new">
-            <Button className="bg-primary text-on-primary hover:bg-primary-container shadow-none h-10 rounded-lg">
-              <Plus className="w-4 h-4 mr-2" /> Create Trip
-            </Button>
-          </Link>
-        }
+        actions={<AddTripDialog />}
         filters={
           <>
             <div className="relative flex-1 min-w-[240px]">

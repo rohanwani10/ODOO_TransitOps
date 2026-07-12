@@ -5,9 +5,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { StatusBadge, StatusType } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import Link from "next/link";
+import { Search, Filter, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useVehicles } from "@/lib/api-hooks";
+import { AddVehicleDialog } from "@/components/shared/entity-create-dialogs";
 
 // Map DB enum → StatusBadge type
 function mapVehicleStatus(status: string): StatusType {
@@ -110,13 +110,7 @@ export default function VehiclesPage() {
       <PageHeader
         title="Fleet Vehicles"
         subtitle="Manage and track all company vehicles"
-        actions={
-          <Link href="/vehicles/new">
-            <Button className="bg-primary text-on-primary hover:bg-primary-container shadow-none h-10 rounded-lg">
-              <Plus className="w-4 h-4 mr-2" /> Add Vehicle
-            </Button>
-          </Link>
-        }
+        actions={<AddVehicleDialog />}
         filters={
           <>
             <div className="relative flex-1 min-w-[240px]">

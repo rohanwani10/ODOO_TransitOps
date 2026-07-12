@@ -1,9 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { EyeOff, Eye, Truck, AlertCircle } from "lucide-react";
+import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AlertCircle, Eye, EyeOff, Loader2, Truck } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
+
+function readError(data: unknown) {
+  if (typeof data !== "object" || data === null) return "Invalid email or password";
+  const error = (data as { error?: unknown }).error;
+  if (typeof error === "string") return error;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return "Invalid email or password";
+}
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -12,158 +23,141 @@ export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((state) => state.setAuth);
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setIsLoading(true);
     setError("");
 
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email");
-    const password = formData.get("password");
+    const formData = new FormData(event.currentTarget);
 
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: formData.get("email"),
+          password: formData.get("password"),
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        setError(data.error || "Invalid email or password");
-        setIsLoading(false);
+        setError(readError(data));
         return;
       }
 
       setAuth(data.data.user, data.data.accessToken);
       router.push("/");
-    } catch (err) {
-      setError("An unexpected error occurred. Please try again.");
+    } catch {
+      setError("Unable to sign in right now. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-row w-full h-screen overflow-hidden bg-surface font-body-md text-on-surface">
-      {/* Left Panel: Brand & Visuals */}
-      <div className="hidden lg:flex flex-col w-7/12 relative bg-primary overflow-hidden">
-        {/* Decorative Background elements */}
-        <div className="absolute inset-0 z-0 pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-primary-container/20 rounded-full blur-[120px] animate-pulse"></div>
-          <div className="absolute bottom-[-5%] right-[-5%] w-[400px] h-[400px] bg-secondary-container/10 rounded-full blur-[100px]"></div>
-        </div>
-
-        {/* Content Overlay */}
-        <div className="relative z-10 flex flex-col justify-between h-full p-xl">
-          <div className="flex items-center gap-sm">
-            <div className="bg-on-primary p-xs rounded-lg shadow-xl">
-              <Truck className="text-primary h-8 w-8" />
+    <main className="min-h-screen bg-surface text-on-surface">
+      <div className="mx-auto grid min-h-screen w-full max-w-6xl lg:grid-cols-[1fr_440px]">
+        <section className="hidden flex-col justify-between border-r border-outline-variant/30 bg-surface-container-low p-10 lg:flex">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-on-primary">
+              <Truck className="h-6 w-6" />
             </div>
-            <span className="font-display-lg text-headline-lg text-on-primary tracking-tight">
-              TransitOps
-            </span>
+            <span className="font-headline-lg text-headline-lg text-primary">TransitOps</span>
           </div>
 
           <div className="max-w-xl">
-            <h1 className="font-display-lg text-display-lg text-on-primary mb-md leading-tight">
-              Digitize your <br />
-              <span className="text-secondary-container">fleet operations.</span>
+            <p className="mb-4 text-label-lg font-label-lg text-primary">Operations command center</p>
+            <h1 className="font-display-lg text-display-md leading-tight text-on-surface">
+              Manage vehicles, drivers, trips, maintenance, and fleet expenses from one live workspace.
             </h1>
-            <p className="font-body-lg text-body-lg text-on-primary/80 max-w-md">
-              The intelligent command center for modern logistics. Track, manage, and optimize your entire transit network in real-time.
-            </p>
           </div>
 
-          <div className="flex items-center gap-lg mt-xl">
-            <p className="font-caption text-caption text-on-primary/60">
-              Trusted by 500+ global logistics partners
-            </p>
+          <div className="grid grid-cols-3 gap-4 text-body-sm text-on-surface-variant">
+            <div className="rounded-lg border border-outline-variant/30 bg-surface p-4">Live dashboard</div>
+            <div className="rounded-lg border border-outline-variant/30 bg-surface p-4">Fleet records</div>
+            <div className="rounded-lg border border-outline-variant/30 bg-surface p-4">Cost tracking</div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Right Panel: Login Form */}
-      <div className="flex-1 flex flex-col justify-center items-center bg-surface relative">
-        {/* Mobile Logo */}
-        <div className="lg:hidden absolute top-xl left-xl flex items-center gap-xs">
-          <Truck className="text-primary h-6 w-6" />
-          <span className="font-headline-md text-headline-md text-on-surface tracking-tight">
-            TransitOps
-          </span>
-        </div>
+        <section className="flex items-center justify-center p-6">
+          <div className="w-full" style={{ width: "min(420px, calc(100vw - 48px))" }}>
+            <div className="mb-8 lg:hidden">
+              <div className="mb-4 flex items-center gap-2">
+                <Truck className="h-7 w-7 text-primary" />
+                <span className="font-headline-md text-headline-md text-primary">TransitOps</span>
+              </div>
+            </div>
 
-        <div className="w-full max-w-[420px] px-margin-mobile lg:px-0">
-          <div className="mb-xl">
-            <h2 className="font-headline-lg text-headline-lg text-on-surface mb-xs">
-              Welcome back
-            </h2>
-            <p className="font-body-md text-body-md text-on-surface-variant">
-              Enter your credentials to access your dashboard
-            </p>
-          </div>
+            <div className="mb-8">
+              <h2 className="font-headline-lg text-headline-lg text-on-surface">Sign in</h2>
+              <p className="mt-2 text-body-md text-on-surface-variant">
+                Access your operations dashboard.
+              </p>
+            </div>
 
-          <form className="space-y-lg" onSubmit={handleLogin}>
-            <div className="space-y-xs">
-              <label className="font-caption text-caption text-on-surface-variant uppercase tracking-wider" htmlFor="email">
-                Email Address
-              </label>
-              <div className="relative">
+            <form className="space-y-5" onSubmit={handleLogin}>
+              <label className="block space-y-2">
+                <span className="text-label-md font-medium text-on-surface">Email</span>
                 <input
-                  id="email"
                   name="email"
                   type="email"
                   required
-                  className={`w-full px-md py-lg bg-surface-container-low rounded-lg text-on-surface font-body-md border focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${error ? 'border-error' : 'border-outline-variant focus:border-primary'}`}
-                  placeholder="name@company.com"
+                  autoComplete="email"
+                  className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 text-body-md outline-none focus:border-primary focus:ring-3 focus:ring-primary/20"
+                  placeholder="admin@transitops.com"
                 />
-              </div>
-            </div>
+              </label>
 
-            <div className="space-y-xs">
-              <div className="flex justify-between items-center">
-                <label className="font-caption text-caption text-on-surface-variant uppercase tracking-wider" htmlFor="password">
-                  Password
-                </label>
-                <a href="#" className="font-caption text-caption text-primary hover:text-primary-container transition-colors">
-                  Forgot password?
-                </a>
-              </div>
-              <div className="relative">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  className={`w-full px-md py-lg pr-12 bg-surface-container-low rounded-lg text-on-surface font-body-md border focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${error ? 'border-error' : 'border-outline-variant focus:border-primary'}`}
-                />
-                <button
-                  type="button"
-                  className="absolute right-md top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
-                </button>
-              </div>
-              
+              <label className="block space-y-2">
+                <span className="text-label-md font-medium text-on-surface">Password</span>
+                <div className="relative">
+                  <input
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    autoComplete="current-password"
+                    className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 pr-11 text-body-md outline-none focus:border-primary focus:ring-3 focus:ring-primary/20"
+                    placeholder="Admin@123"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+                  </button>
+                </div>
+              </label>
+
               {error && (
-                <div className="flex items-center gap-xs mt-sm text-error">
+                <div className="flex items-center gap-2 rounded-lg bg-error-container px-3 py-2 text-body-sm text-on-error-container">
                   <AlertCircle className="h-4 w-4" />
-                  <span className="font-caption text-caption">{error}</span>
+                  {error}
                 </div>
               )}
-            </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-primary text-on-primary py-3 rounded-lg font-title-md text-body-md hover:shadow-lg active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isLoading ? "Signing in..." : "Sign in to Dashboard"}
-            </button>
-          </form>
-        </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-label-lg font-label-lg text-on-primary transition-colors hover:bg-primary/90 disabled:opacity-70"
+              >
+                {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                Sign in
+              </button>
+            </form>
+
+            <p className="mt-6 text-center text-body-sm text-on-surface-variant">
+              No account yet?{" "}
+              <Link href="/signup" className="font-medium text-primary hover:underline">
+                Create one
+              </Link>
+            </p>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

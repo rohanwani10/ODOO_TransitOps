@@ -14,11 +14,12 @@ import {
   LogOut,
   Truck
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { hasPermission, Resource } from "@/lib/rbac";
 
-const navItems: { name: string; href: string; icon: any; resource?: Resource }[] = [
+const navItems: { name: string; href: string; icon: LucideIcon; resource?: Resource }[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Vehicles", href: "/vehicles", icon: Car, resource: "vehicles" },
   { name: "Drivers", href: "/drivers", icon: Users, resource: "drivers" },
@@ -84,15 +85,13 @@ export function Sidebar() {
       </nav>
 
       <div className="px-2 lg:px-4 py-md border-t border-outline-variant/30 space-y-xs">
-        {user && hasPermission(user.role, "users", "view") && (
-          <Link
-            href="/settings"
-            className="flex items-center px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all"
-          >
-            <Settings className="h-5 w-5 shrink-0" />
-            <span className="hidden lg:block ml-3 font-label-md">Settings</span>
-          </Link>
-        )}
+        <Link
+          href="/settings"
+          className="flex items-center px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all"
+        >
+          <Settings className="h-5 w-5 shrink-0" />
+          <span className="hidden lg:block ml-3 font-label-md">Settings</span>
+        </Link>
         <button
           onClick={handleLogout}
           className="w-full flex items-center px-3 py-2 rounded-lg text-error hover:bg-error-container hover:text-on-error-container transition-all"
