@@ -59,9 +59,10 @@ async function main() {
         role: user.role,
     };
 
-    const token = jwt.sign(payload, secret, {
-        expiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
-    });
+    const expiresIn = (process.env.JWT_EXPIRES_IN ?? "7d") as import("ms").StringValue;
+    // Non-null assertion: secret is guaranteed non-empty by the guard at module level.
+    // TypeScript cannot narrow module-level `const` across function call boundaries.
+    const token = jwt.sign(payload, secret!, { expiresIn });
 
     console.log("\n╔══════════════════════════════════════════╗");
     console.log("║       TransitOps — Test JWT Token        ║");
@@ -71,7 +72,12 @@ async function main() {
     console.log(`UserId: ${user.id}`);
     console.log(`\nToken :\n`);
     console.log(`Bearer ${token}`);
-    console.log(`\nExpires: ${new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()}`);
+    // Derive the expiry display from the actual setting rather than hardcoding 7d.
+    const decoded = jwt.decode(token) as { exp?: number } | null;
+    const expiresDisplay = decoded?.exp
+        ? new Date(decoded.exp * 1000).toISOString()
+        : `(based on ${expiresIn})`;
+    console.log(`\nExpires: ${expiresDisplay}`);
     console.log("\n--- curl example ---");
     console.log(`curl http://localhost:3000/api/fuel-logs \\`);
     console.log(`  -H "Authorization: Bearer ${token}"\n`);

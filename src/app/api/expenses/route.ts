@@ -51,7 +51,12 @@ const expenseCreateSchema = z.object({
  * Does NOT allow changing status directly (use /approve or /reject endpoints).
  */
 const expenseUpdateSchema = expenseCreateSchema
-    .omit({ status: true }) // status is changed via dedicated approve/reject endpoints
+    .omit({
+        status: true,       // changed via /approve or /reject only
+        reviewedById: true, // set by approve/reject — not directly editable
+        reviewNote: true,   // set by approve/reject — not directly editable
+        reviewedAt: true,   // set by approve/reject — not directly editable
+    })
     .partial()
     .superRefine((val, ctx) => {
         if (Object.keys(val).length === 0) {

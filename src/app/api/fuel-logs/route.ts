@@ -34,17 +34,17 @@ const fuelCreateSchema = z
         fuelType: fuelTypeSchema,
         // SRS §10: liters > 0
         quantity: z.coerce
-            .number({ invalid_type_error: "quantity must be a number" })
+            .number({ error: "quantity must be a number" })
             .positive("Liters must be greater than 0"),
         // cost per litre > 0
         pricePerUnit: z.coerce
-            .number({ invalid_type_error: "pricePerUnit must be a number" })
+            .number({ error: "pricePerUnit must be a number" })
             .positive("Price per unit must be greater than 0"),
         // totalCost is auto-computed; if supplied it must be >= 0
         totalCost: z.coerce.number().nonnegative("Total cost cannot be negative").optional(),
         // SRS §10: odometer >= 0
         odometerKm: z.coerce
-            .number({ invalid_type_error: "odometerKm must be a number" })
+            .number({ error: "odometerKm must be a number" })
             .int("odometerKm must be an integer")
             .nonnegative("Odometer reading cannot be negative"),
         station: z.string().trim().min(1).optional().nullable(),
