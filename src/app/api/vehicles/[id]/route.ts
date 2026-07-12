@@ -31,7 +31,6 @@ const vehicleUpdateSchema = z.object({
     status: vehicleStatusSchema.optional(),
     odometerKm: z.coerce.number().int().min(0).optional(),
     seatingCapacity: z.coerce.number().int().positive().optional().nullable(),
-    purchaseDate: z.coerce.date().optional(),
     insurancePolicyNo: z.string().trim().min(1).optional().nullable(),
     insuranceExpiry: z.coerce.date().optional().nullable(),
     registrationExpiry: z.coerce.date().optional().nullable(),

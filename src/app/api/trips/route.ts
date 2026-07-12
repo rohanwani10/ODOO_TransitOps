@@ -17,7 +17,6 @@ const tripCreateSchema = z
         startOdometer: z.coerce.number().int().min(0).optional().nullable(),
         endOdometer: z.coerce.number().int().min(0).optional().nullable(),
         distanceKm: z.coerce.number().int().min(0).optional().nullable(),
-        cargoWeight: z.coerce.number().positive().optional().nullable(),
         purpose: z.string().trim().min(1).optional().nullable(),
         status: tripStatusSchema.optional(),
         notes: z.string().trim().min(1).optional().nullable(),
