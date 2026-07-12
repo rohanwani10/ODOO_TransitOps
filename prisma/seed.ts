@@ -70,31 +70,31 @@ async function seedUsers() {
     {
       email: "admin@transitops.com",
       name: "Arjun Sharma",
-      role: "ADMIN" as const,
+      role: "FLEET_MANAGER" as const,
       plain: "Admin@123",
     },
     {
       email: "manager@transitops.com",
       name: "Priya Nair",
-      role: "MANAGER" as const,
+      role: "FINANCIAL_ANALYST" as const,
       plain: "Manager@123",
     },
     {
       email: "driver.rajesh@transitops.com",
       name: "Rajesh Kumar",
-      role: "DRIVER" as const,
+      role: "DISPATCHER" as const,
       plain: "Driver@123",
     },
     {
       email: "driver.suresh@transitops.com",
       name: "Suresh Patel",
-      role: "DRIVER" as const,
+      role: "DISPATCHER" as const,
       plain: "Driver@123",
     },
     {
       email: "driver.meena@transitops.com",
       name: "Meena Devi",
-      role: "DRIVER" as const,
+      role: "DISPATCHER" as const,
       plain: "Driver@123",
     },
   ];
@@ -218,7 +218,7 @@ async function seedDrivers() {
   console.log("  → Drivers");
 
   const driverUsers = await prisma.user.findMany({
-    where: { role: "DRIVER" },
+    where: { role: "DISPATCHER" },
     orderBy: { createdAt: "asc" },
   });
 
@@ -288,8 +288,8 @@ async function seedTripsAndLogs() {
     include: { user: true },
     orderBy: { createdAt: "asc" },
   });
-  const adminUser = await prisma.user.findFirstOrThrow({ where: { role: "ADMIN" } });
-  const managerUser = await prisma.user.findFirstOrThrow({ where: { role: "MANAGER" } });
+  const adminUser = await prisma.user.findFirstOrThrow({ where: { role: "FLEET_MANAGER" } });
+  const managerUser = await prisma.user.findFirstOrThrow({ where: { role: "FINANCIAL_ANALYST" } });
 
   const bus1 = vehicles[0];
   const bus2 = vehicles[1];
@@ -318,6 +318,7 @@ async function seedTripsAndLogs() {
       distanceKm: 400,
       purpose: "Regular intercity passenger service",
       status: "COMPLETED",
+      revenue: "15000.00",
     },
   });
 
@@ -334,6 +335,7 @@ async function seedTripsAndLogs() {
       startOdometer: 71800,
       status: "IN_PROGRESS",
       purpose: "Express passenger service",
+      revenue: "12000.00",
     },
   });
 
@@ -348,6 +350,7 @@ async function seedTripsAndLogs() {
       scheduledEnd: new Date(daysFromNow(2).getTime() + 1.5 * 60 * 60 * 1000),
       purpose: "Executive airport transfer",
       status: "SCHEDULED",
+      revenue: "3500.00",
     },
   });
 
@@ -363,6 +366,7 @@ async function seedTripsAndLogs() {
       purpose: "Cargo delivery — electronics",
       status: "CANCELLED",
       notes: "Cancelled due to port strike",
+      revenue: "0.00",
     },
   });
 
@@ -382,6 +386,7 @@ async function seedTripsAndLogs() {
       distanceKm: 300,
       purpose: "Client meeting drop-off",
       status: "COMPLETED",
+      revenue: "2500.00",
     },
   });
 

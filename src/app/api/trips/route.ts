@@ -47,21 +47,30 @@ function parsePagination(url: URL) {
 
 function buildTripWhere(url: URL) {
     const q = url.searchParams.get("q")?.trim();
+    const status = url.searchParams.get("status")?.trim();
 
-    if (!q) {
-        return undefined;
+    const filters: Record<string, unknown>[] = [];
+
+    if (q) {
+        filters.push({
+            OR: [
+                { origin: { contains: q, mode: "insensitive" as const } },
+                { destination: { contains: q, mode: "insensitive" as const } },
+                { purpose: { contains: q, mode: "insensitive" as const } },
+                { notes: { contains: q, mode: "insensitive" as const } },
+                { vehicle: { registrationNo: { contains: q, mode: "insensitive" as const } } },
+                { driver: { user: { name: { contains: q, mode: "insensitive" as const } } } },
+            ],
+        });
     }
 
-    return {
-        OR: [
-            { origin: { contains: q, mode: "insensitive" as const } },
-            { destination: { contains: q, mode: "insensitive" as const } },
-            { purpose: { contains: q, mode: "insensitive" as const } },
-            { notes: { contains: q, mode: "insensitive" as const } },
-            { vehicle: { registrationNo: { contains: q, mode: "insensitive" as const } } },
-            { driver: { licenseNo: { contains: q, mode: "insensitive" as const } } },
-        ],
-    };
+    if (status && tripStatusSchema.safeParse(status).success) {
+        filters.push({ status });
+    }
+
+    if (filters.length === 0) return undefined;
+    if (filters.length === 1) return filters[0];
+    return { AND: filters };
 }
 
 function buildTripData(input: z.infer<typeof tripCreateSchema>) {
@@ -91,27 +100,51 @@ function isPrismaUniqueError(error: unknown) {
 
 
 export async function GET(request: Request) {
-    const url = new URL(request.url);
-    const { page, limit, skip } = parsePagination(url);
-    const where = buildTripWhere(url);
+    try {
+        const url = new URL(request.url);
+        const { page, limit, skip } = parsePagination(url);
+        const where = buildTripWhere(url);
 
-    const [items, total] = await prisma.$transaction([
-        prisma.trip.findMany({
-            where,
-            orderBy: { scheduledStart: "desc" },
-            skip,
-            take: limit,
-        }),
-        prisma.trip.count({ where }),
-    ]);
+        const [items, total] = await prisma.$transaction([
+            prisma.trip.findMany({
+                where,
+                orderBy: { scheduledStart: "desc" },
+                skip,
+                take: limit,
+                include: {
+                    vehicle: {
+                        select: { id: true, registrationNo: true, make: true, model: true, type: true, status: true },
+                    },
+                    driver: {
+                        select: {
+                            id: true,
+                            licenseNo: true,
+                            status: true,
+                            user: { select: { id: true, name: true } },
+                        },
+                    },
+                },
+            }),
+            prisma.trip.count({ where }),
+        ]);
 
-    return NextResponse.json({
-        data: items,
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-    });
+        return NextResponse.json({
+            success: true,
+            data: items,
+            meta: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
+    } catch (error) {
+        console.error("GET /api/trips error:", error);
+        return NextResponse.json(
+            { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to fetch trips" } },
+            { status: 500 },
+        );
+    }
 }
 
 export async function POST(request: Request) {
@@ -120,27 +153,63 @@ export async function POST(request: Request) {
     try {
         payload = await request.json();
     } catch {
-        return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+        return NextResponse.json(
+            { success: false, error: { code: "BAD_REQUEST", message: "Invalid JSON body" } },
+            { status: 400 },
+        );
     }
 
     const parsed = tripCreateSchema.safeParse(payload);
 
     if (!parsed.success) {
-        return NextResponse.json({ error: "Validation failed", issues: parsed.error.flatten() }, { status: 400 });
+        const flat = parsed.error.flatten();
+        const fields: Record<string, string> = {};
+        for (const [key, messages] of Object.entries(flat.fieldErrors)) {
+            if (messages && messages.length > 0) {
+                fields[key] = messages[0];
+            }
+        }
+        return NextResponse.json(
+            { success: false, error: { code: "VALIDATION_ERROR", message: "Validation failed", fields } },
+            { status: 422 },
+        );
     }
 
     try {
-        const trip = await prisma.trip.create({ data: buildTripData(parsed.data) });
-        return NextResponse.json(trip, { status: 201 });
+        const trip = await prisma.trip.create({
+            data: buildTripData(parsed.data),
+            include: {
+                vehicle: {
+                    select: { id: true, registrationNo: true, make: true, model: true },
+                },
+                driver: {
+                    select: {
+                        id: true,
+                        licenseNo: true,
+                        user: { select: { id: true, name: true } },
+                    },
+                },
+            },
+        });
+        return NextResponse.json({ success: true, data: trip }, { status: 201 });
     } catch (error) {
         if (isPrismaUniqueError(error)) {
-            return NextResponse.json({ error: "Trip already exists" }, { status: 409 });
+            return NextResponse.json(
+                { success: false, error: { code: "DUPLICATE", message: "Trip already exists" } },
+                { status: 409 },
+            );
         }
 
         if (error instanceof Error && "code" in error && (error as { code?: string }).code === "P2003") {
-            return NextResponse.json({ error: "Referenced vehicle or driver was not found" }, { status: 409 });
+            return NextResponse.json(
+                { success: false, error: { code: "FK_VIOLATION", message: "Referenced vehicle or driver was not found" } },
+                { status: 409 },
+            );
         }
 
-        return NextResponse.json({ error: "Failed to create trip" }, { status: 500 });
+        return NextResponse.json(
+            { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to create trip" } },
+            { status: 500 },
+        );
     }
 }
