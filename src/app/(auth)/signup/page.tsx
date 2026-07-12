@@ -55,38 +55,38 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-surface p-6 text-on-surface">
-      <div className="w-full" style={{ width: "min(420px, calc(100vw - 48px))" }}>
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-on-primary">
-            <Truck className="h-5 w-5" />
+    <main className="auth-single">
+      <div className="auth-single-card">
+        <div className="auth-logo mb-8">
+          <div className="auth-logo-mark auth-logo-mark-sm">
+            <Truck className="h-5 w-5" aria-hidden="true" />
           </div>
-          <span className="font-headline-md text-headline-md text-primary">TransitOps</span>
+          <span>TransitOps</span>
         </div>
 
-        <div className="mb-8">
-          <h1 className="font-headline-lg text-headline-lg">Create account</h1>
-          <p className="mt-2 text-body-md text-on-surface-variant">
+        <div className="auth-heading">
+          <h1 className="auth-form-title">Create account</h1>
+          <p className="auth-muted">
             Set up access to the operations workspace.
           </p>
         </div>
 
-        <form onSubmit={handleSignup} className="space-y-5">
-          <label className="block space-y-2">
-            <span className="text-label-md font-medium">Name</span>
-            <input name="name" required className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 outline-none focus:border-primary focus:ring-3 focus:ring-primary/20" />
+        <form onSubmit={handleSignup} className="auth-form">
+          <label className="auth-field">
+            <span className="auth-label">Name</span>
+            <input name="name" required className="auth-control" />
           </label>
-          <label className="block space-y-2">
-            <span className="text-label-md font-medium">Email</span>
-            <input name="email" type="email" required className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 outline-none focus:border-primary focus:ring-3 focus:ring-primary/20" />
+          <label className="auth-field">
+            <span className="auth-label">Email</span>
+            <input name="email" type="email" required className="auth-control" />
           </label>
-          <label className="block space-y-2">
-            <span className="text-label-md font-medium">Password</span>
-            <input name="password" type="password" minLength={6} required className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 outline-none focus:border-primary focus:ring-3 focus:ring-primary/20" />
+          <label className="auth-field">
+            <span className="auth-label">Password</span>
+            <input name="password" type="password" minLength={6} required className="auth-control" />
           </label>
-          <label className="block space-y-2">
-            <span className="text-label-md font-medium">Role</span>
-            <select name="role" defaultValue="FLEET_MANAGER" className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 outline-none focus:border-primary focus:ring-3 focus:ring-primary/20">
+          <label className="auth-field">
+            <span className="auth-label">Role</span>
+            <select name="role" defaultValue="FLEET_MANAGER" className="auth-control">
               <option value="FLEET_MANAGER">Fleet Manager</option>
               <option value="DISPATCHER">Dispatcher</option>
               <option value="SAFETY_OFFICER">Safety Officer</option>
@@ -95,7 +95,7 @@ export default function SignupPage() {
           </label>
 
           {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+            <div className="auth-error">
               <AlertCircle className="h-4 w-4" />
               {error}
             </div>
@@ -104,16 +104,16 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-label-lg font-label-lg text-on-primary hover:bg-primary/90 disabled:opacity-70"
+            className="auth-submit"
           >
             {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
             Create account
           </button>
         </form>
 
-        <p className="mt-6 text-center text-body-sm text-on-surface-variant">
+        <p className="auth-switch">
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-primary hover:underline">
+          <Link href="/login" className="auth-link">
             Sign in
           </Link>
         </p>

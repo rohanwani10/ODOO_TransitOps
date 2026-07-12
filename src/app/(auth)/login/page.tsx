@@ -57,74 +57,74 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-surface text-on-surface">
-      <div className="mx-auto grid min-h-screen w-full max-w-6xl lg:grid-cols-[1fr_440px]">
-        <section className="hidden flex-col justify-between border-r border-outline-variant/30 bg-surface-container-low p-10 lg:flex">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-on-primary">
-              <Truck className="h-6 w-6" />
+    <main className="auth-page">
+      <div className="auth-layout">
+        <section className="auth-brand-panel">
+          <div className="auth-logo">
+            <div className="auth-logo-mark">
+              <Truck className="h-6 w-6" aria-hidden="true" />
             </div>
-            <span className="font-headline-lg text-headline-lg text-primary">TransitOps</span>
+            <span>TransitOps</span>
           </div>
 
-          <div className="max-w-xl">
-            <p className="mb-4 text-label-lg font-label-lg text-primary">Operations command center</p>
-            <h1 className="font-display-lg text-display-md leading-tight text-on-surface">
+          <div className="auth-brand-copy">
+            <p className="auth-kicker">Operations command center</p>
+            <h1 className="auth-title">
               Manage vehicles, drivers, trips, maintenance, and fleet expenses from one live workspace.
             </h1>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 text-body-sm text-on-surface-variant">
-            <div className="rounded-lg border border-outline-variant/30 bg-surface p-4">Live dashboard</div>
-            <div className="rounded-lg border border-outline-variant/30 bg-surface p-4">Fleet records</div>
-            <div className="rounded-lg border border-outline-variant/30 bg-surface p-4">Cost tracking</div>
+          <div className="auth-feature-grid">
+            <div className="auth-feature">Live dashboard</div>
+            <div className="auth-feature">Fleet records</div>
+            <div className="auth-feature">Cost tracking</div>
           </div>
         </section>
 
-        <section className="flex items-center justify-center p-6">
-          <div className="w-full" style={{ width: "min(420px, calc(100vw - 48px))" }}>
-            <div className="mb-8 lg:hidden">
-              <div className="mb-4 flex items-center gap-2">
-                <Truck className="h-7 w-7 text-primary" />
-                <span className="font-headline-md text-headline-md text-primary">TransitOps</span>
+        <section className="auth-form-panel">
+          <div className="auth-card">
+            <div className="auth-logo mb-8 lg:hidden">
+              <div className="auth-logo-mark auth-logo-mark-sm">
+                <Truck className="h-5 w-5" aria-hidden="true" />
               </div>
+              <span>TransitOps</span>
             </div>
 
-            <div className="mb-8">
-              <h2 className="font-headline-lg text-headline-lg text-on-surface">Sign in</h2>
-              <p className="mt-2 text-body-md text-on-surface-variant">
+            <div className="auth-heading">
+              <h2 className="auth-form-title">Sign in</h2>
+              <p className="auth-muted">
                 Access your operations dashboard.
               </p>
             </div>
 
-            <form className="space-y-5" onSubmit={handleLogin}>
-              <label className="block space-y-2">
-                <span className="text-label-md font-medium text-on-surface">Email</span>
+            <form className="auth-form" onSubmit={handleLogin}>
+              <label className="auth-field">
+                <span className="auth-label">Email</span>
                 <input
                   name="email"
                   type="email"
                   required
                   autoComplete="email"
-                  className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 text-body-md outline-none focus:border-primary focus:ring-3 focus:ring-primary/20"
+                  className="auth-control"
                   placeholder="admin@transitops.com"
                 />
               </label>
 
-              <label className="block space-y-2">
-                <span className="text-label-md font-medium text-on-surface">Password</span>
-                <div className="relative">
+              <label className="auth-field">
+                <span className="auth-label">Password</span>
+                <div className="auth-password-wrap">
                   <input
                     name="password"
                     type={showPassword ? "text" : "password"}
                     required
                     autoComplete="current-password"
-                    className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 pr-11 text-body-md outline-none focus:border-primary focus:ring-3 focus:ring-primary/20"
+                    className="auth-control"
                     placeholder="Admin@123"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((visible) => !visible)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
+                    className="auth-password-button"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
@@ -133,7 +133,7 @@ export default function LoginPage() {
               </label>
 
               {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                <div className="auth-error">
                   <AlertCircle className="h-4 w-4" />
                   {error}
                 </div>
@@ -142,16 +142,16 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-label-lg font-label-lg text-on-primary transition-colors hover:bg-primary/90 disabled:opacity-70"
+                className="auth-submit"
               >
                 {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                 Sign in
               </button>
             </form>
 
-            <p className="mt-6 text-center text-body-sm text-on-surface-variant">
+            <p className="auth-switch">
               No account yet?{" "}
-              <Link href="/signup" className="font-medium text-primary hover:underline">
+              <Link href="/signup" className="auth-link">
                 Create one
               </Link>
             </p>
