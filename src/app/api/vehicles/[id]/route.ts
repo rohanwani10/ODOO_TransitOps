@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 
 const vehicleStatusSchema = z.enum([
     "AVAILABLE",
+    "ON_TRIP",
     "IN_USE",
     "MAINTENANCE",
     "OUT_OF_SERVICE",
@@ -25,79 +26,26 @@ const vehicleTypeSchema = z.enum([
 
 const fuelTypeSchema = z.enum(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG"]);
 
-const vehicleUpdateSchema = z
-    .object({
-        registrationNumber: z
-            .string()
-            .trim()
-            .min(1, "Registration number is required")
-            .max(30, "Registration number must be at most 30 characters")
-            .regex(
-                /^[A-Za-z0-9\-\s]+$/,
-                "Registration number must be alphanumeric (hyphens and spaces allowed)"
-            )
-            .optional(),
-        make: z.string().trim().min(1, "Make is required").optional(),
-        model: z.string().trim().min(1, "Model is required").optional(),
-        year: z.coerce
-            .number()
-            .int()
-            .min(1900)
-            .max(new Date().getFullYear() + 1)
-            .optional(),
-        type: vehicleTypeSchema.optional(),
-        fuelType: fuelTypeSchema.optional(),
-        status: vehicleStatusSchema.optional(),
-        maxLoadCapacityKg: z.coerce
-            .number()
-            .positive("Max load capacity must be greater than 0")
-            .optional()
-            .nullable(),
-        odometerKm: z.coerce
-            .number()
-            .int()
-            .min(0, "Odometer cannot be negative")
-            .optional(),
-        seatingCapacity: z.coerce
-            .number()
-            .int()
-            .positive()
-            .optional()
-            .nullable(),
-        acquisitionCost: z.coerce
-            .number()
-            .min(0, "Acquisition cost cannot be negative")
-            .optional()
-            .nullable(),
-        region: z.string().trim().max(80).optional().nullable(),
-        insurancePolicyNo: z.string().trim().min(1).optional().nullable(),
-        insuranceExpiry: z.coerce.date().optional().nullable(),
-        registrationExpiry: z.coerce.date().optional().nullable(),
-        imageUrl: z.string().trim().min(1).optional().nullable(),
-    })
-    .strict();
+const vehicleUpdateSchema = z.object({
+    registrationNumber: z.string().trim().min(1).optional(),
+    make: z.string().trim().min(1).optional(),
+    model: z.string().trim().min(1).optional(),
+    year: z.coerce.number().int().min(1900).max(2100).optional(),
+    type: vehicleTypeSchema.optional(),
+    fuelType: fuelTypeSchema.optional(),
+    status: vehicleStatusSchema.optional(),
+    odometerKm: z.coerce.number().int().min(0).optional(),
+    seatingCapacity: z.coerce.number().int().positive().optional().nullable(),
+    payloadCapacityKg: z.coerce.number().int().positive().optional().nullable(),
+    insurancePolicyNo: z.string().trim().min(1).optional().nullable(),
+    insuranceExpiry: z.coerce.date().optional().nullable(),
+    registrationExpiry: z.coerce.date().optional().nullable(),
+    imageUrl: z.string().trim().min(1).optional().nullable(),
+}).strict();
 
-// ---------------------------------------------------------------------------
-// System-controlled statuses that cannot be set manually via PATCH
-// These are only changed by Trip and Maintenance modules (BR-6..10)
-// ---------------------------------------------------------------------------
-
-const SYSTEM_CONTROLLED_STATUSES = ["IN_USE"] as const;
-
-// Valid manual status transitions allowed per SRS §11.1
-// (User can only manually set AVAILABLE → RETIRED or RETIRED → AVAILABLE)
-const VALID_MANUAL_TRANSITIONS: Record<string, string[]> = {
-    AVAILABLE: ["RETIRED", "OUT_OF_SERVICE"],
-    OUT_OF_SERVICE: ["AVAILABLE", "RETIRED"],
-    RETIRED: ["AVAILABLE"], // un-retire by Fleet Manager
-    // IN_USE and MAINTENANCE are system-controlled:
-    // IN_USE → AVAILABLE happens when trip completes/cancels
-    // MAINTENANCE → AVAILABLE happens when maintenance closes
-};
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+function buildVehicleWhere(id: string) {
+    return { id };
+}
 
 function buildVehicleData(input: z.infer<typeof vehicleUpdateSchema>) {
     const data: Record<string, unknown> = {};
@@ -113,17 +61,11 @@ function buildVehicleData(input: z.infer<typeof vehicleUpdateSchema>) {
     if (input.maxLoadCapacityKg !== undefined)
         data.maxLoadCapacityKg = input.maxLoadCapacityKg;
     if (input.odometerKm !== undefined) data.odometerKm = input.odometerKm;
-    if (input.seatingCapacity !== undefined)
-        data.seatingCapacity = input.seatingCapacity;
-    if (input.acquisitionCost !== undefined)
-        data.acquisitionCost = input.acquisitionCost;
-    if (input.region !== undefined) data.region = input.region;
-    if (input.insurancePolicyNo !== undefined)
-        data.insurancePolicyNo = input.insurancePolicyNo;
-    if (input.insuranceExpiry !== undefined)
-        data.insuranceExpiry = input.insuranceExpiry;
-    if (input.registrationExpiry !== undefined)
-        data.registrationExpiry = input.registrationExpiry;
+    if (input.seatingCapacity !== undefined) data.seatingCapacity = input.seatingCapacity;
+    if (input.payloadCapacityKg !== undefined) data.payloadCapacityKg = input.payloadCapacityKg;
+    if (input.insurancePolicyNo !== undefined) data.insurancePolicyNo = input.insurancePolicyNo;
+    if (input.insuranceExpiry !== undefined) data.insuranceExpiry = input.insuranceExpiry;
+    if (input.registrationExpiry !== undefined) data.registrationExpiry = input.registrationExpiry;
     if (input.imageUrl !== undefined) data.imageUrl = input.imageUrl;
 
     return data;

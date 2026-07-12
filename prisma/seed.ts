@@ -352,7 +352,7 @@ async function seedTripsAndLogs() {
   });
 
   // Scheduled trip — minibus + driver3
-  const trip3 = await prisma.trip.create({
+  await prisma.trip.create({
     data: {
       vehicleId: minibus.id,
       driverId: driver3.id,

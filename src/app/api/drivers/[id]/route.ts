@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
-const driverStatusSchema = z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"]);
+const driverStatusSchema = z.enum(["AVAILABLE", "ON_TRIP", "ACTIVE", "INACTIVE", "SUSPENDED"]);
 
 const driverUpdateSchema = z.object({
     userId: z.string().trim().min(1).optional(),

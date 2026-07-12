@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
-const driverStatusSchema = z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"]);
+const driverStatusSchema = z.enum(["AVAILABLE", "ON_TRIP", "ACTIVE", "INACTIVE", "SUSPENDED"]);
 
 const driverCreateSchema = z.object({
     userId: z.string().trim().min(1),
@@ -18,12 +18,6 @@ const driverCreateSchema = z.object({
     imageUrl: z.string().trim().min(1).optional().nullable(),
     hiredAt: z.coerce.date().optional(),
 }).strict();
-
-const driverUpdateSchema = driverCreateSchema.partial().superRefine((value, context) => {
-    if (Object.keys(value).length === 0) {
-        context.addIssue({ code: "custom", message: "At least one field is required" });
-    }
-});
 
 function parsePagination(url: URL) {
     const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
@@ -54,7 +48,7 @@ function buildDriverData(input: z.infer<typeof driverCreateSchema>) {
         phone: input.phone,
         address: input.address ?? null,
         dateOfBirth: input.dateOfBirth ?? null,
-        status: input.status ?? "ACTIVE",
+        status: input.status ?? "AVAILABLE",
         emergencyName: input.emergencyName ?? null,
         emergencyPhone: input.emergencyPhone ?? null,
         imageUrl: input.imageUrl ?? null,
@@ -81,10 +75,6 @@ function buildDriverWhere(url: URL) {
 
 function isPrismaUniqueError(error: unknown) {
     return error instanceof Error && "code" in error && (error as { code?: string }).code === "P2002";
-}
-
-function isPrismaNotFoundError(error: unknown) {
-    return error instanceof Error && "code" in error && (error as { code?: string }).code === "P2025";
 }
 
 export async function GET(request: Request) {

@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 
 const vehicleStatusSchema = z.enum([
     "AVAILABLE",
+    "ON_TRIP",
     "IN_USE",
     "MAINTENANCE",
     "OUT_OF_SERVICE",
@@ -73,9 +74,7 @@ const vehicleCreateSchema = z.object({
     imageUrl: z.string().trim().min(1).optional().nullable(),
 }).strict();
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+
 
 function parsePagination(url: URL) {
     const page = Math.max(
@@ -142,6 +141,7 @@ function buildVehicleData(input: z.infer<typeof vehicleCreateSchema>) {
         seatingCapacity: input.seatingCapacity ?? null,
         acquisitionCost: input.acquisitionCost ?? null,
         region: input.region ?? null,
+        payloadCapacityKg: input.payloadCapacityKg ?? null,
         insurancePolicyNo: input.insurancePolicyNo ?? null,
         insuranceExpiry: input.insuranceExpiry ?? null,
         registrationExpiry: input.registrationExpiry ?? null,
