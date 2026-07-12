@@ -3,16 +3,45 @@
 import { useState } from "react";
 import { EyeOff, Eye, Truck, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/stores/auth-store";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const setAuth = useAuthStore((state) => state.setAuth);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Simulate login
-    router.push("/");
+    setIsLoading(true);
+    setError("");
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email");
+    const password = formData.get("password");
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setError(data.error || "Invalid email or password");
+        setIsLoading(false);
+        return;
+      }
+
+      setAuth(data.data.user, data.data.accessToken);
+      router.push("/");
+    } catch (err) {
+      setError("An unexpected error occurred. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -84,9 +113,9 @@ export default function LoginPage() {
                   id="email"
                   name="email"
                   type="email"
+                  required
                   className={`w-full px-md py-lg bg-surface-container-low rounded-lg text-on-surface font-body-md border focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${error ? 'border-error' : 'border-outline-variant focus:border-primary'}`}
                   placeholder="name@company.com"
-                  defaultValue="admin@transitops.io"
                 />
               </div>
             </div>
@@ -105,8 +134,8 @@ export default function LoginPage() {
                   id="password"
                   name="password"
                   type={showPassword ? "text" : "password"}
+                  required
                   className={`w-full px-md py-lg pr-12 bg-surface-container-low rounded-lg text-on-surface font-body-md border focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${error ? 'border-error' : 'border-outline-variant focus:border-primary'}`}
-                  defaultValue="password123"
                 />
                 <button
                   type="button"
@@ -120,16 +149,17 @@ export default function LoginPage() {
               {error && (
                 <div className="flex items-center gap-xs mt-sm text-error">
                   <AlertCircle className="h-4 w-4" />
-                  <span className="font-caption text-caption">Invalid email or password</span>
+                  <span className="font-caption text-caption">{error}</span>
                 </div>
               )}
             </div>
 
             <button
               type="submit"
-              className="w-full bg-primary text-on-primary py-3 rounded-lg font-title-md text-body-md hover:shadow-lg active:scale-[0.98] transition-all"
+              disabled={isLoading}
+              className="w-full bg-primary text-on-primary py-3 rounded-lg font-title-md text-body-md hover:shadow-lg active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              Sign in to Dashboard
+              {isLoading ? "Signing in..." : "Sign in to Dashboard"}
             </button>
           </form>
         </div>

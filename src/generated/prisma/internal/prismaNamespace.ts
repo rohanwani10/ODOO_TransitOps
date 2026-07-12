@@ -1120,6 +1120,7 @@ export const TripScalarFieldEnum = {
   purpose: 'purpose',
   status: 'status',
   notes: 'notes',
+  revenue: 'revenue',
   dispatchedAt: 'dispatchedAt',
   completedAt: 'completedAt',
   createdAt: 'createdAt',

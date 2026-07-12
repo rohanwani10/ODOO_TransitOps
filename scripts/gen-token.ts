@@ -3,8 +3,8 @@
  *
  * Usage:
  *   npx tsx scripts/gen-token.ts
- *   npx tsx scripts/gen-token.ts --role ADMIN
- *   npx tsx scripts/gen-token.ts --role DRIVER --userId <id>
+ *   npx tsx scripts/gen-token.ts --role FLEET_MANAGER
+ *   npx tsx scripts/gen-token.ts --role DISPATCHER --userId <id>
  *
  * The generated token can be used in curl / Postman:
  *   Authorization: Bearer <token>
@@ -32,7 +32,7 @@ async function main() {
     const roleIndex = args.indexOf("--role");
     const userIdIndex = args.indexOf("--userId");
 
-    const roleArg = roleIndex !== -1 ? (args[roleIndex + 1]?.toUpperCase() ?? "ADMIN") : "ADMIN";
+    const roleArg = roleIndex !== -1 ? (args[roleIndex + 1]?.toUpperCase() ?? "FLEET_MANAGER") : "FLEET_MANAGER";
     const userIdArg = userIdIndex !== -1 ? args[userIdIndex + 1] : undefined;
 
     let user: { id: string; email: string; name: string; role: string } | null = null;
@@ -45,7 +45,7 @@ async function main() {
         if (!user) throw new Error(`User with id=${userIdArg} not found`);
     } else {
         user = await prisma.user.findFirst({
-            where: { role: roleArg as "ADMIN" | "MANAGER" | "DRIVER" },
+            where: { role: roleArg as "FLEET_MANAGER" | "DISPATCHER" | "SAFETY_OFFICER" | "FINANCIAL_ANALYST" },
             select: { id: true, email: true, name: true, role: true },
         });
         if (!user) throw new Error(`No user found with role=${roleArg}. Run pnpm db:seed first.`);

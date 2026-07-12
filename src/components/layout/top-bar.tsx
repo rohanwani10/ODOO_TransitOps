@@ -1,6 +1,12 @@
+"use client";
 import { Search, Moon, Bell } from "lucide-react";
 
+import { useAuthStore } from "@/stores/auth-store";
+
 export function TopBar() {
+  const user = useAuthStore((state) => state.user);
+  const initial = user?.name ? user.name.charAt(0).toUpperCase() : "?";
+
   return (
     <header className="fixed top-0 left-[64px] lg:left-[240px] right-0 h-16 bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-lg">
       <div className="flex items-center gap-4 text-on-surface">
@@ -28,7 +34,7 @@ export function TopBar() {
         </button>
         <div className="flex items-center gap-sm pl-md border-l border-outline-variant/30">
           <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm ring-2 ring-surface-container-high shadow-sm">
-            M
+            {initial}
           </div>
         </div>
       </div>
