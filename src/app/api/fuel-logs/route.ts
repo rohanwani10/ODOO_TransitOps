@@ -26,7 +26,8 @@ const fuelTypeSchema = z.enum(["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "CNG"])
  * - odometerKm >= 0
  * - filledAt (log_date) cannot be a future date
  */
-const fuelCreateSchema = z
+// Base object without refinements — used to derive the partial update schema
+const fuelBaseSchema = z
     .object({
         vehicleId: z.string().trim().min(1, "vehicleId is required"),
         driverId: z.string().trim().min(1, "driverId is required"),
@@ -51,21 +52,22 @@ const fuelCreateSchema = z
         // SRS §10: date fields cannot be in the future (validated below in superRefine)
         filledAt: z.coerce.date().optional().nullable(),
     })
-    .strict()
-    .superRefine((val, ctx) => {
-        if (val.filledAt && val.filledAt > new Date()) {
-            ctx.addIssue({
-                code: "custom",
-                path: ["filledAt"],
-                message: "filledAt cannot be a future date",
-            });
-        }
-    });
+    .strict();
+
+const fuelCreateSchema = fuelBaseSchema.superRefine((val, ctx) => {
+    if (val.filledAt && val.filledAt > new Date()) {
+        ctx.addIssue({
+            code: "custom",
+            path: ["filledAt"],
+            message: "filledAt cannot be a future date",
+        });
+    }
+});
 
 /**
  * Partial update schema — at least one field must be provided.
  */
-const fuelUpdateSchema = fuelCreateSchema
+const fuelUpdateSchema = fuelBaseSchema
     .partial()
     .superRefine((val, ctx) => {
         if (Object.keys(val).length === 0) {
