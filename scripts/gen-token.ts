@@ -14,7 +14,7 @@
  */
 
 import "dotenv/config";
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 const secret = process.env.JWT_SECRET;
@@ -58,7 +58,7 @@ async function main() {
         role: user.role,
     };
 
-    const expiresIn = (process.env.JWT_EXPIRES_IN ?? "7d") as import("ms").StringValue;
+    const expiresIn = (process.env.JWT_EXPIRES_IN ?? "7d") as SignOptions["expiresIn"];
     // Non-null assertion: secret is guaranteed non-empty by the guard at module level.
     // TypeScript cannot narrow module-level `const` across function call boundaries.
     const token = jwt.sign(payload, secret!, { expiresIn });
